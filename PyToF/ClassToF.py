@@ -152,6 +152,9 @@ class ToF:
         self.run_dens_MC                = functools.partial(run_dens_MC,                self)
         self.classify_and_save_state    = functools.partial(classify_and_save_state,    self)
 
+        from PyToF.OptToF import run_dens_opt
+        self.run_dens_opt               = functools.partial(run_dens_opt,               self)
+
         from PyToF.PlotToF import plot_xy, plot_shape, plot_ss, plot_state_xy, plot_state_corr_xy, plot_autocorr
 
         self.plot_xy            = functools.partial(plot_xy,            self)
