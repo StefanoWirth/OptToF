@@ -48,17 +48,17 @@ class ToF:
                                                         -1.551985393081485e-10,                                 #J16
                                                          1.655948019619652e-11,                                 #J18
                                                         -1.829544870258362e-12]),                               #J20
-                        #AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH                               
-                        'Sigma_Js':         np.array([  0.00001,                                          #J2
-                                                        0.00001,                                          #J4
-                                                        0.00001,                                          #J6
-                                                        0.00001,                                          #J8
-                                                        0.00001,                                          #J10
-                                                        0.00001,                                          #J12
-                                                        0.00001,                                          #J14
-                                                        0.00001,                                          #J16
-                                                        0.00001,                                          #J18
-                                                        0.00001]),                                        #J20
+                        #Numbers are taken straight from my rectum        
+                        'Sigma_Js':         np.array([  0.001e-6,                                               #J2
+                                                        0.005e-6,                                               #J4
+                                                        0.01e-6,                                                #J6
+                                                        0.05e-6,                                                #J8
+                                                        0.1e-6,                                                 #J10
+                                                        0.5e-6,                                                 #J12
+                                                        1e-6,                                                   #J14
+                                                        5e-6,                                                   #J16
+                                                        10e-6,                                                  #J18
+                                                        50e-6]),                                                #J20
                         'alphas':           np.zeros(12),                                                       #Barotropic differential rotation parameters
 
                         'rho_MAX':          2e4,    #Maximal density that is physically acceptable, in SI units

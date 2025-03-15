@@ -5,6 +5,7 @@
 ###########################################################
 
 import numpy as np
+import random
 
 class Adam:
     def __init__(self, learning_rate=0.001, beta1=0.9, beta2=0.999, epsilon=1e-8):
@@ -29,7 +30,13 @@ class Adam:
         m_hat = self.m / (1 - self.beta1 ** self.t)
         v_hat = self.v / (1 - self.beta2 ** self.t)
         #TODO: Hotrodding a decay rate is a terrible idea
-        params -= self.learning_rate * (0.9**(self.t//40)) * m_hat / (np.sqrt(v_hat) + self.epsilon)
+        #it was: * (0.9**(self.t//40))
+        if (abs(np.sqrt(v_hat)) < self.epsilon).any():
+            print("====================================")
+            print("WARNING: Epsilon resolution reached!")
+            print("====================================")
+            #print(np.array(-(self.learning_rate * m_hat / (np.sqrt(v_hat) + self.epsilon)))[::100])
+        params -= self.learning_rate * m_hat / (np.sqrt(v_hat) + self.epsilon)
         
         return params
 

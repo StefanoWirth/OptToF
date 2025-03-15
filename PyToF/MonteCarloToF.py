@@ -8,7 +8,7 @@ import functools
 import emcee 
 from multiprocessing import Pool 
 
-from PyToF.color import c
+from color import c
 
 def _check_phys(class_obj):
 

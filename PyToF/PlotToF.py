@@ -11,7 +11,7 @@ import os
 import matplotlib.pyplot as plt
 from matplotlib import colormaps
 
-from PyToF.color import c
+from color import c
 
 def default_opts():
 

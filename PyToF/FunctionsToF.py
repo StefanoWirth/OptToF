@@ -9,8 +9,8 @@ import time
 import matplotlib.pyplot as plt
 import matplotlib
 
-import PyToF.AlgoToF as AlgoToF
-from PyToF.color import c
+import AlgoToF as AlgoToF
+from color import c
 
 def _mass_int(class_obj):
 

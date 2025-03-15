@@ -1,11 +1,14 @@
+# type: ignore
 ########################################################
 # Author of this version: Luca Morf - luca.morf@uzh.ch #
 ########################################################
 
 import numpy as np
 import scipy
+import random
+import time
 
-from PyToF.color import c
+from color import c
 
 def default_opts():
 
@@ -83,19 +86,27 @@ def Algorithm(mean_l, rho, m_rot, **kwargs):
         #The loop following arXiv:1708.06177v1:
         Js = np.zeros(opts['order']+1)
 
+        timetaken = [0, 0, 0, 0]
+
         for it in range(opts['maxiter']):
 
+                time0 = time.perf_counter()
                 #Equations (B.16) and (B.17) from arXiv:1708.06177v1:
                 fs = SkipSpline_B1617(ss, mean_l, xind, opts)
-
+                time1 = time.perf_counter()
                 #Equation (B.9) from arXiv:1708.06177v1:
                 SS = B9(fs, mean_l, rho, opts)
-
+                time2 = time.perf_counter()
                 #Equations (B.12)-(B.15) from arXiv:1708.06177v1:
                 ss = SkipSpline_B1215(ss, SS, m_rot, mean_l, xind, opts)
-
+                time3 = time.perf_counter()
                 #Equations (B.1) and (B.11) from arXiv:1708.06177v1:
                 new_Js, R_ratio = B111(ss, SS, opts)
+                time4 = time.perf_counter()
+                timetaken[0] += time1-time0
+                timetaken[1] += time2-time1
+                timetaken[2] += time3-time2
+                timetaken[3] += time4-time3
 
                 #Check for convergence to terminate:
                 Js[Js==0] = np.spacing(1) #Smallest numerically resolvable non-zero number
@@ -118,6 +129,13 @@ def Algorithm(mean_l, rho, m_rot, **kwargs):
                 string = c.WARN + 'Convergence warning: max(dJs) = ' + c.NUMB + "{:.0e}".format(np.max(dJs)) + c.WARN + ' > ' + c.NUMB + "{:.0e}".format(opts['tol']) + c.WARN + ' after maxiter = ' + c.NUMB + str(opts['maxiter']) + c.WARN + ' iterations.' + c.ENDC
                 print(' '*len(string), end='\r')
 
+        if (opts['verbosity'] > 0) and random.random() < 0:
+                
+                print(c.INFO + 'Time for fs: ' + c.NUMB + '{:.2f}'.format(timetaken[0]) + c.INFO + ' seconds.' +c.ENDC)
+                print(c.INFO + 'Time for Ss: ' + c.NUMB + '{:.2f}'.format(timetaken[1]) + c.INFO + ' seconds.' +c.ENDC)
+                print(c.INFO + 'Time for As: ' + c.NUMB + '{:.2f}'.format(timetaken[2]) + c.INFO + ' seconds.' +c.ENDC)
+                print(c.INFO + 'Time for Js: ' + c.NUMB + '{:.2f}'.format(timetaken[2]) + c.INFO + ' seconds.' +c.ENDC)
+                
         #Output:
         Js          = new_Js
 
