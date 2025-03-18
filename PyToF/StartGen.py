@@ -1,6 +1,7 @@
 ###########################################################
 # Author of this version: Stefano Wirth - stwirth@ethz.ch #
 ###########################################################
+
 import numpy as np
 import math
 import scipy
@@ -16,7 +17,7 @@ def parameterise_starting_points(ToF, weights, ResultFunction):
     #after the raw resultfunction has been generated, it needs to be preconditioned for total mass agreeing
     MassFixFactor = ToF.opts['M_init']/(-4*np.pi*scipy.integrate.simpson(ResultFunction*ToF.li**2, ToF.li))
     ResultFunction *= MassFixFactor
-    if ToF.opts['verbosity'] > 1: print("MassFixFactor for initial generation was: " + str(MassFixFactor))
+    if ToF.opts['verbosity'] > 2: print(c.INFO + "MassFixFactor for initial generation was: " + c.NUMB + '{:.2f}'.format(MassFixFactor) + c.ENDC)
     #then, we need to obtain parameters from the conditioned function (note fudging factor p_alpha should be 1 now)
     params = np.zeros(ToF.opts['N']-1)
     for i in range(len(params)):
@@ -75,12 +76,33 @@ def subdivide(ResultFunction, lower_x, upper_x, lower_y, upper_y):
     if x < upper_x:
         subdivide(ResultFunction, x + 1, upper_x, y, upper_y)
 
-def create_starting_point(ToF, weights):
+def create_starting_point_uneven(ToF, weights):
     N = ToF.opts['N']
     R = 6000
     ResultFunction = np.zeros(N)
     ResultFunction[-1] = R
-    subdivide(ResultFunction, 1, N - 2, 0, R)
+    subdivide(ResultFunction, 1, N - 2, np.spacing(0), R)
+    return parameterise_starting_points(ToF, weights, ResultFunction)
+
+def subdivide_binary(ResultFunction, pivot, depth, power, lower_y, upper_y):
+    y = random.uniform(lower_y,upper_y)
+    ResultFunction[pivot] = y
+    pivot_step = int(2**(power-2-depth))
+    if pivot_step == 0:
+        return
+    subdivide_binary(ResultFunction, pivot-pivot_step, depth + 1, power, lower_y, y)
+    subdivide_binary(ResultFunction, pivot+pivot_step, depth + 1, power, y, upper_y)
+
+def create_starting_point(ToF, weights):
+    N = ToF.opts['N']
+    assert(N.bit_count() == 1), "Error: N must be a power of 2."
+    power = int(math.log2(N))
+    R = 6000
+    ResultFunction = np.zeros(N)
+    subdivide_binary(ResultFunction, 2**(power-1), 0, power, np.spacing(0), R) #should be N/2
+    #note this leaves ResultFunction[0] alone because ∑_i<n 2^i = 2^n-1
+    #np.spacing avoids ResultFunction[1] = 0
+    #ResultFunction[-1] < R doesnt really matter
     return parameterise_starting_points(ToF, weights, ResultFunction)
 
 @functools.cache

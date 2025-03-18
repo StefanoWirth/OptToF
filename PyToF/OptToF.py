@@ -51,18 +51,20 @@ import AlgoToF
 import scipy
 import time
 import random
-import math
 
 #TODO: Note: when you wanna turn this all into a package, replace all the references back to PyToF.reference again
 
 from color import c
 
+def fix_params(params, weights, min):
+    return np.maximum(params, np.log(weights*min*np.arange(len(params), 0, -1)/len(params)))
+
+
 #fixed works with the order of rhoi and li, that is, param now represents the jumps going inward
 #it respects the mass and also makes the last parameter dependent on the rest to ensure equal distribution
 def param_to_rho_exp_fixed(OptToF, ToF, params):
     rho = np.zeros(len(params)+1)
-    for i in range(len(params)):
-        rho[i+1] = rho[i]+np.exp(params[i])/OptToF.weights[i]
+    rho[1:] = np.cumsum(np.exp(params)/OptToF.weights)
     MassFixFactor = ToF.opts['M_init']/(-4*np.pi*scipy.integrate.simpson(rho*ToF.li**2, ToF.li))
     rho *= MassFixFactor
     OptToF.mass_fix_factor_running_average = OptToF.update_running_average(OptToF.mass_fix_factor_running_average, MassFixFactor)
@@ -90,26 +92,32 @@ def full_gradient(OptToF, ToF, params):
 
     #rhoi: now generate rhoi without mass normalisation p_α
     unnormalised_rhoi = np.zeros(len(params)+1)
-    for i in range(len(params)):
-        unnormalised_rhoi[i+1] = unnormalised_rhoi[i]+np.exp(params[i])/OptToF.weights[i]
-    #gamma = (dl/∫)
-    integral = (-scipy.integrate.simpson(unnormalised_rhoi*ToF.li**2, ToF.li))
-    assert(integral > 0), "Integrated the wrong way round!"
-    gamma = abs(ToF.li[2]-ToF.li[1])/(integral)
-    #factor for mass cost gradient, 2*(4π∫/M-1)*4π/M*∇∫
-    masscostfactor = (8*np.pi/ToF.opts['M_init'])*(4*np.pi*integral/ToF.opts['M_init']-1)
+    unnormalised_rhoi[1:] = np.cumsum(np.exp(params)/OptToF.weights)
     #calculate rho
     ToF.rhoi = param_to_rho_exp_fixed(OptToF, ToF, params)
     #first assert the mass is correct
-    assert(abs(abs(-4*np.pi*scipy.integrate.simpson(ToF.rhoi*ToF.li**2, ToF.li)/ToF.opts['M_init'])-1)<0.01), "MassIntError: Density curve does not fit Planet Mass within 1% margin"
+    #assert(abs(abs(-4*np.pi*scipy.integrate.simpson(ToF.rhoi*ToF.li**2, ToF.li)/ToF.opts['M_init'])-1)<0.01), "MassIntError: Density curve does not fit Planet Mass within 1% margin"
+
+    time1 = time.perf_counter()
+
+    #gamma = (dl/∫)
+    integral = (-scipy.integrate.simpson(unnormalised_rhoi*ToF.li**2, ToF.li))
+    assert(integral > 0), "Integrated the wrong way round!"
+
+    time2 = time.perf_counter()
+
+    gamma = abs(ToF.li[2]-ToF.li[1])/(integral)
+    #factor for mass cost gradient, 2*(4π∫/M-1)*4π/M*∇∫
+    fourpioverm = 4*np.pi/ToF.opts['M_init']
+    masscostfactor = 2*fourpioverm*(fourpioverm*integral-1)
 
     #Phase 2: ToF
     #=============================
-    time1 = time.perf_counter()
+    time3 = time.perf_counter()
     #Calculate Js and SS for gradients
     call_ToF(OptToF, ToF)
 
-    time2 = time.perf_counter()
+    time4 = time.perf_counter()
 
     #Phase 3: Gradients
     #=============================
@@ -152,7 +160,7 @@ def full_gradient(OptToF, ToF, params):
     #combine
     gradient = objective_gradient + OptToF.costfactor*mass_gradient + OptToF.localfactor*local_gradient
 
-    time3 = time.perf_counter()
+    time5 = time.perf_counter()
 
     if OptToF.opts['verbosity'] > 3 and random.random() < OptToF.opts['DBGshowchance']:
         print("I'm currently at:")
@@ -171,6 +179,8 @@ def full_gradient(OptToF, ToF, params):
     OptToF.timing[0] += time1-time0
     OptToF.timing[1] += time2-time1
     OptToF.timing[2] += time3-time2
+    OptToF.timing[3] += time4-time3
+    OptToF.timing[4] += time5-time4
 
     return gradient
 
