@@ -8,10 +8,15 @@ from ClassAdam import Adam
 from OptToF import *
 from StartGen import *
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 import time
 import random
-from os import cpu_count, getpid
+from os import cpu_count, getpid, linesep
 from colorhash import ColorHash
+import signal
+import h5py
+import uuid
+
 
 from color import c
 
@@ -29,22 +34,26 @@ class OptToF:
         except for the kwargs given by the user.
         """
 
-        opts      =    {'verbosity':                    1,      #Higher numbers lead to more verbosity output in the console
-                        'steps':                        1000,
-                        'epoch size':                   50,
-                        'cores':                        cpu_count() - 1, #TODO
-                        'parallelize':                  True,
-                        'time':                         True,
-                        'figures':                      True,
-                        'learning rate':                0.01,    
-                        'costfactor':                   1e0,   
-                        'localfactor':                  0,
-                        'rolling average forgetfulness':0.7,
-                        'early stopping':               True,
-                        'convergence limit':            0.0005,
-                        'ToF convergence tolerance':    1e-10,
-                        'DBGshowchance':                0,              
-                        'kitty':                        0.001
+        opts      =    {'verbosity':                    1,              #Higher numbers lead to more verbosity output in the console
+                        'steps':                        1000,           #How many steps to take total
+                        'epoch size':                   50,             #How big one epoch should be. This only matters for verbose output and convergence checks. (ideally steps is divisible by this)
+                        'cores':                        cpu_count() - 1,#How many cpu cores the process occupies in parallel
+                        'parallelize':                  True,           #Run in parallel
+                        'time':                         True,           #Time the operations
+                        'figures':                      True,           #Display figures
+                        'early stopping':               True,           #Should the optimisation stop early if convergence is detected?
+                        'convergence limit':            0.0005,         #Limit below which average increase is considered converged
+                        'ToF convergence tolerance':    1e-10,          
+                        'DBGshowchance':                0,              #Chance to show certain debug status prints
+                        'continuous running':           False,          #Start new runs when old ones finished
+                        'write to file':                False,          #Save results to file
+                        'file location':                'results.hdf5', #Name of said file
+                        'learning rate':                0.01,           #Adam learning rate
+                        'costfactor':                   1e0,            #A multiplier for the costfactor of the gradient to stay within the mass region of the target   
+                        'localfactor':                  0,              #A multiplier to stay local to the starting distribution. Unsupported
+                        'rolling average forgetfulness':0.7,            #How aggressively trackers should forget the past (0 is immediate, must be <1)
+                        'minimum increase':             1,              #minimum increase of rho at each step, can be a scalar or an np.array of shape params
+                        'kitty':                        0.001           #🐈
                         }
 
         #Update the standard numerical parameters with the user input provided via the kwargs
@@ -109,13 +118,20 @@ class OptToF:
         #Do the optimisation algorithm in a parallel manner on multiple cores:
         if self.opts['parallelize']:
             with ProcessPoolExecutor() as executor:
-                futures = [executor.submit(run_opt, self, ToF) for core in range(self.opts['cores'])]
-                for future in as_completed(futures):
-                    future.result()
+                m = multiprocessing.Manager()
+                lock = m.Lock()
+                futures = [executor.submit(categoriser, self, ToF, lock) for core in range(self.opts['cores'])]
+                try:
+                    for future in as_completed(futures):
+                        future.result()
+                except KeyboardInterrupt:
+                    if (self.opts['verbosity'] > 0): print(c.WARN + 'KeyboardInterrupt caught.'+ c.ENDC)
 
-        #Do the optimisation algorithm on a single core:
+        #Do the optimisation algorithm on a single core: TODO: Note this is currently unsupported. run parallel on one core lmao
         else:
-            run_opt(self, ToF)
+            m = multiprocessing.Manager()
+            lock = m.Lock()
+            categoriser(self, ToF, lock)
 
     def update_running_average(self, average, new):
         return self.opts['rolling average forgetfulness']*average + (1-self.opts['rolling average forgetfulness'])*new
@@ -131,6 +147,50 @@ class OptToF:
         print('                                                     じしf_,)ノ')
         print('\033[92m'+'wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww' + c.ENDC)
         print()
+
+    def interrupt_handler(self, sig, frame):
+        self.opts['continuous running'] = False
+        print(c.WARN + 'Termination request raised. Finishing current run.'+ c.ENDC)
+
+def categoriser(OptToF, ToF, lock):
+    signal.signal(signal.SIGINT, OptToF.interrupt_handler)
+    while True:
+        starting_distr, result_distr, ToF = run_opt(OptToF, ToF)
+        #Categorise success/fail
+        are_Js_explained = True
+        is_rho_MAX_respected = True
+
+        #check if Js are explained within one sigma
+        for i in range(min(len(ToF.opts['Target_Js']),len(ToF.Js)-1)):
+            if abs((ToF.Js[i+1] - ToF.opts['Target_Js'][i])/ToF.opts['Sigma_Js'][i]) >= 1:
+                are_Js_explained = False
+        #check if maximum density is explained
+        if np.max(result_distr)>ToF.opts['rho_MAX']:
+            is_rho_MAX_respected = False
+
+        result = np.array([starting_distr, result_distr])
+
+        if OptToF.opts['write to file'] == True:
+            with lock:
+                f = h5py.File(OptToF.opts['file location'], 'a')
+                dset = f.create_dataset(str(uuid.uuid4()), data = result)
+                dset.attrs['Js explained'] = are_Js_explained
+                dset.attrs['rho_MAX respected'] = is_rho_MAX_respected
+                f.close()
+            #np.savetxt(f, result, fmt='%1.8e', delimiter=',', newline=linesep)
+            #np.savez(g, result)
+
+        if OptToF.opts['continuous running'] == False:
+            break
+        
+        OptToF._set_IC()
+
+    if (OptToF.opts['verbosity'] > 0):
+        r, g, b = ColorHash(getpid()).rgb
+        cPID = '\033[38;2;' + str(r) + ';' + str(g) + ';' + str(b) + 'm'
+        print(c.INFO + 'Process with ID ' + cPID + str(getpid()) + c.INFO + ' finished.'+ c.ENDC)
+
+    return
 
 def run_opt(OptToF, ToF):
 
@@ -170,10 +230,11 @@ def run_opt(OptToF, ToF):
     epochs = OptToF.opts['steps'] // OptToF.opts['epoch size']
     steps = OptToF.opts['epoch size']
     #setup plots
-    figure, (devax, perax) = plt.subplots(1, 2)
-    devax.plot(param_to_rho_exp_fixed(OptToF, ToF, params), color = 'red')
+    if OptToF.opts['figures']:
+        figure, (devax, perax) = plt.subplots(1, 2)
+        devax.plot(param_to_rho_exp_fixed(OptToF, ToF, OptToF.start_params), color = 'red')
     #calculate first cost
-    ToF.rhoi = param_to_rho_exp_fixed(OptToF, ToF, params)
+    ToF.rhoi = param_to_rho_exp_fixed(OptToF, ToF, OptToF.start_params)
     call_ToF(OptToF, ToF)
     new_cost = calc_cost(ToF)
     cost_vector = [new_cost]
@@ -186,7 +247,7 @@ def run_opt(OptToF, ToF):
         new_cost = calc_cost(ToF)
         
         if (epoch + 1) % 3 == 0:
-            devax.plot(param_to_rho_exp_fixed(OptToF, ToF, params), color = 'b', alpha = (epoch + 1)/epochs)
+            if OptToF.opts['figures']: devax.plot(param_to_rho_exp_fixed(OptToF, ToF, params), color = 'b', alpha = (epoch + 1)/epochs)
         
         #Verbosity
         if (OptToF.opts['verbosity'] > 0):
@@ -209,13 +270,13 @@ def run_opt(OptToF, ToF):
             print(c.INFO + '                 J explanation strength:'
                 + c.INFO + ' J2: ' + c.NUMB + '{:.3f}'.format((ToF.Js[1]-ToF.opts['Target_Js'][0])**2/ToF.opts['Sigma_Js'][0]**2)
                 + c.INFO + ' J4: ' + c.NUMB + '{:.3f}'.format((ToF.Js[2]-ToF.opts['Target_Js'][1])**2/ToF.opts['Sigma_Js'][1]**2)
-                + c.INFO + ' J6: ' + c.NUMB + '{:.3f}'.format((ToF.Js[3]-ToF.opts['Target_Js'][2])**2/ToF.opts['Sigma_Js'][2]**2)
-                + c.INFO + ' J8: ' + c.NUMB + '{:.3f}'.format((ToF.Js[4]-ToF.opts['Target_Js'][3])**2/ToF.opts['Sigma_Js'][3]**2)
+#                + c.INFO + ' J6: ' + c.NUMB + '{:.3f}'.format((ToF.Js[3]-ToF.opts['Target_Js'][2])**2/ToF.opts['Sigma_Js'][2]**2)
+#                + c.INFO + ' J8: ' + c.NUMB + '{:.3f}'.format((ToF.Js[4]-ToF.opts['Target_Js'][3])**2/ToF.opts['Sigma_Js'][3]**2)
                 + c.ENDC)
         if abs(new_cost/old_cost-1) < OptToF.opts['convergence limit']: OptToF.convergence_strikes += 1
         else: OptToF.convergence_strikes = 0
-        if OptToF.opts['early stopping'] and OptToF.convergence_strikes >= 3:
-                print(c.INFO + 'Convergence detected. Terminating.' + c.ENDC)
+        if OptToF.opts['early stopping'] and OptToF.convergence_strikes >= 2:
+                if OptToF.opts['verbosity'] > 0: print(c.INFO + 'Convergence detected. Terminating.' + c.ENDC)
                 break
         if random.random() < OptToF.opts['kitty'] and OptToF.opts['verbosity'] > 0:
 
@@ -228,7 +289,7 @@ def run_opt(OptToF, ToF):
         for step in range(steps):
 
             params = opt_step(AdamOptimiser, OptToF, ToF, params)
-            params = fix_params(params, OptToF.weights, 0.5)
+            params = fix_params(params, OptToF.weights, OptToF.opts['minimum increase'])
             cost_vector.append(calc_cost(ToF))
             OptToF.improvement_running_average = OptToF.update_running_average(OptToF.improvement_running_average, cost_vector[-1]/cost_vector[-2])
 
@@ -259,11 +320,11 @@ def run_opt(OptToF, ToF):
         print()
 
         print(c.INFO + 'Final Js:   ' + c.NUMB, end = ' ')
-        print(ToF.Js[1:])
+        print(ToF.Js[1:len(ToF.opts['Target_Js'])+1])
         print(c.INFO + 'Target Js:  ' + c.NUMB, end = ' ')
         print(ToF.opts['Target_Js'])
         print(c.INFO + 'Difference: ' + c.NUMB, end = ' ')
-        print(ToF.Js[1:]-ToF.opts['Target_Js'])
+        print(ToF.Js[1:len(ToF.opts['Target_Js'])+1]-ToF.opts['Target_Js'])
         print(c.INFO + 'Tolerance:  ' + c.NUMB, end = ' ')
         print(ToF.opts['Sigma_Js'])
 
@@ -277,7 +338,7 @@ def run_opt(OptToF, ToF):
             print(c.INFO + 'Time for ToF calculations:          ' + c.NUMB + '{:.2f}'.format(OptToF.timing[3]) + c.INFO + ' seconds.' +c.ENDC)
             print(c.INFO + 'Time for gradient calculations:     ' + c.NUMB + '{:.2f}'.format(OptToF.timing[4]) + c.INFO + ' seconds.' +c.ENDC)
 
-        perax.semilogy(np.array(cost_vector))
+        if OptToF.opts['figures']: perax.semilogy(np.array(cost_vector))
         if OptToF.opts['figures']: plt.show()
 
-    return
+    return param_to_rho_exp_fixed(OptToF, ToF, OptToF.start_params), param_to_rho_exp_fixed(OptToF, ToF, params), ToF

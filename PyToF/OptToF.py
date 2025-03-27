@@ -51,14 +51,18 @@ import AlgoToF
 import scipy
 import time
 import random
+import math
+from FunctionsToF import _pressurize
 
 #TODO: Note: when you wanna turn this all into a package, replace all the references back to PyToF.reference again
 
 from color import c
 
 def fix_params(params, weights, min):
-    return np.maximum(params, np.log(weights*min*np.arange(len(params), 0, -1)/len(params)))
-
+    if np.isscalar(max):
+        return np.maximum(params, np.log(weights*min*np.ones_like(params))) #np.arange(len(params), 0, -1)/len(params)
+    else:
+        return np.maximum(params, np.log(weights*min))
 
 #fixed works with the order of rhoi and li, that is, param now represents the jumps going inward
 #it respects the mass and also makes the last parameter dependent on the rest to ensure equal distribution
@@ -119,6 +123,32 @@ def full_gradient(OptToF, ToF, params):
 
     time4 = time.perf_counter()
 
+    #Phase 2.5: Atmosphere
+    #=============================
+    if ToF.opts['use_atmosphere']:
+        _pressurize(ToF)
+        #Define index that marks the transition from the atmosphere to the rest of the model:
+        if not hasattr(ToF, 'check_param'):
+            index = np.abs(ToF.Pi - ToF.opts['atmosphere_until']).argmin()+1
+        else:
+            index = max(np.abs(ToF.Pi - ToF.opts['atmosphere_until']).argmin()+1, round(ToF.check_param(ToF.rhoi, give_atmosphere_index=True)))
+
+        #Adjust the parameters to fit the atmosphere model:
+        goal_rhoi = ToF.opts['atmosphere'](ToF.li[:index], ToF.Pi[:index])
+        for i in range(len(goal_rhoi) - 1):
+            if goal_rhoi[i+1] <= goal_rhoi[i]:
+                params[i] = -100+math.log(OptToF.weights[i]) #a number very close to zero or negative, log would be -∞
+                if ToF.opts['verbosity'] > 0: print(c.WARN + 'Warning: Atmosphere contained nonincreasing step. Fudged to avoid log(0) = -∞' + c.ENDC)
+                continue
+            params[i] = math.log(abs(OptToF.weights[i]*(goal_rhoi[i+1]-goal_rhoi[i]))) #ensure no negatives either
+
+        ToF.rhoi = param_to_rho_exp_fixed(OptToF, ToF, params)
+
+        #Check if the densities are roughly equal:
+        if not np.isclose(goal_rhoi, ToF.rhoi[:index]):
+
+            raise Exception(c.WARN + 'Atmosphere enforcement failed!' + c.ENDC)
+
     #Phase 3: Gradients
     #=============================
     gradient = np.zeros_like(params)
@@ -127,7 +157,7 @@ def full_gradient(OptToF, ToF, params):
 
     # Objective Gradient
 
-    # This is really just in range of order. 
+    # This is really just in range of order / number of Js were given. 
     # Target Js can be any length, start at J2. Our Js start at J0, thats why we can go as far as length of Target_Js but no longer than length of Js-1, because we have J0
     # We have SSs till order + 1 but again skip the first
     n = min(ToF.opts['order'] + 1 - 1, len(ToF.opts['Target_Js']))
@@ -159,6 +189,9 @@ def full_gradient(OptToF, ToF, params):
 
     #combine
     gradient = objective_gradient + OptToF.costfactor*mass_gradient + OptToF.localfactor*local_gradient
+
+    if ToF.opts['use_atmosphere']:
+        gradient[:index - 1] = 0 #we avoid changing the gradient parameters since these must remain fixed. -1 because 1 less params than rho
 
     time5 = time.perf_counter()
 
