@@ -59,57 +59,66 @@ from FunctionsToF import _pressurize
 from color import c
 
 def fix_params(params, weights, min):
-    if np.isscalar(max):
-        return np.maximum(params, np.log(weights*min*np.ones_like(params))) #np.arange(len(params), 0, -1)/len(params)
+    #weirdly, this distinction is unnecessary, since numpy can deal with both equally... funny, huh?
+    if np.isscalar(min):
+        return np.maximum(params, np.log(weights*min)) #to enforce drho >= min, we basically undo drho = exp(p_i)/w_i >= min to p_i >= log(min*w_i)
     else:
         return np.maximum(params, np.log(weights*min))
 
-#fixed works with the order of rhoi and li, that is, param now represents the jumps going inward
-#it respects the mass and also makes the last parameter dependent on the rest to ensure equal distribution
 def param_to_rho_exp_fixed(OptToF, ToF, params):
-    rho = np.zeros(len(params)+1)
-    rho[1:] = np.cumsum(np.exp(params)/OptToF.weights)
+
+    """
+    Calculates rho based on the params, respecting the order of rhoi and li, that is, param represents the jumps going inward.
+    The formula is: rho_i = ∑_j=1 ^i  exp(p_j)/w_j
+    It respects the mass via fixing.
+    """
+
+    rho = np.zeros(len(params)+1) #params represent rho-jumps (drho), so we need one more rho
+    rho[1:] = np.cumsum(np.exp(params)/OptToF.weights) #first rho is always zero
     MassFixFactor = ToF.opts['M_init']/(-4*np.pi*scipy.integrate.simpson(rho*ToF.li**2, ToF.li))
     rho *= MassFixFactor
     OptToF.mass_fix_factor_running_average = OptToF.update_running_average(OptToF.mass_fix_factor_running_average, MassFixFactor)
-    """
-    if random.random() < 0.05:
-        print("MassFixFactor was: " + str(MassFixFactor))
-    """
+    if random.random() < OptToF.opts['DBGshowchance']: print("MassFixFactor was: " + str(MassFixFactor))
     return rho
 
-def param_to_rho_cheb(OptToF, ToF, params):
-    rho = np.zeros(ToF.opts['N'])
-
-def igradient_exp_fixed(ToF, params, gamma, weights):
-    #TODO: May you achieve nirvana
+def gradient_vector_exp_fixed(ToF, params, gamma, weights):
+    """Calculates the gradient vector in a fast way by reordering terms. May you achieve nirvana."""
     nto1vec = np.arange(len(params), 0, -1)
     #easy way to write sum of sum of e^pi/wi by reordering terms
     return nto1vec - gamma*np.dot(nto1vec,np.exp(params)/weights)*weights
 
 def full_gradient(OptToF, ToF, params):
-    #TODO: Not all those who wander are lost
+
+    """
+    Calculates the full gradient.
+    Phase 1: Calculate prefactors
+    Phase 2: Calls ToF to find J values for the given parameters
+    Phase 3: Calculates gradients based on those J values
+
+    Not all those who wander are lost.
+    """
 
     #Phase 1: Preliminaries
     #=============================
     time0 = time.perf_counter()
 
-    #rhoi: now generate rhoi without mass normalisation p_α
+    #rhoi: first generate rhoi without mass normalisation p_α
     unnormalised_rhoi = np.zeros(len(params)+1)
     unnormalised_rhoi[1:] = np.cumsum(np.exp(params)/OptToF.weights)
-    #calculate rho
+
+    #calculate the real rho
     ToF.rhoi = param_to_rho_exp_fixed(OptToF, ToF, params)
-    #first assert the mass is correct
+    #assert the mass is correct
     #assert(abs(abs(-4*np.pi*scipy.integrate.simpson(ToF.rhoi*ToF.li**2, ToF.li)/ToF.opts['M_init'])-1)<0.01), "MassIntError: Density curve does not fit Planet Mass within 1% margin"
 
     time1 = time.perf_counter()
 
-    #gamma = (dl/∫)
     integral = (-scipy.integrate.simpson(unnormalised_rhoi*ToF.li**2, ToF.li))
-    assert(integral > 0), "Integrated the wrong way round!"
+    #assert(integral > 0), "Integrated the wrong way round!"
 
     time2 = time.perf_counter()
 
+    #gamma = (dl/∫)
     gamma = abs(ToF.li[2]-ToF.li[1])/(integral)
     #factor for mass cost gradient, 2*(4π∫/M-1)*4π/M*∇∫
     fourpioverm = 4*np.pi/ToF.opts['M_init']
@@ -162,9 +171,9 @@ def full_gradient(OptToF, ToF, params):
     # We have SSs till order + 1 but again skip the first
     n = min(ToF.opts['order'] + 1 - 1, len(ToF.opts['Target_Js']))
     Flag = False
-    if False and random.random() <  OptToF.opts['DBGshowchance']:
-        Flag = True
-    gradvec = igradient_exp_fixed(ToF, params, gamma, OptToF.weights)
+    if random.random() <  OptToF.opts['DBGshowchance']: Flag = True
+    gradvec = gradient_vector_exp_fixed(ToF, params, gamma, OptToF.weights)
+
     for i in range(n):
         temp = -(1/n)*(ToF.R_ratio**(2*(i+1)))*((ToF.Js[i+1] - ToF.opts['Target_Js'][i])/ToF.opts['Sigma_Js'][i]**2)*(ToF.SS[i+1][-1]-ToF.SS[i+1][-2])*gradvec
         objective_gradient += temp
@@ -172,26 +181,27 @@ def full_gradient(OptToF, ToF, params):
             print("Magnitude of J gradient Nr " + str(2*(i+1)))
             print('{:.4e}'.format(np.linalg.norm(temp)))
             print("SSdiff:" + '{:.4e}'.format(ToF.SS[i+1][-1]-ToF.SS[i+1][-2]))
-        #objective_gradient += -(1/n)*OptToF.Jratios[i]*(ToF.R_ratio**(2*(i+1)))*((ToF.Js[i+1] - ToF.opts['Target_Js'][i])/ToF.opts['Sigma_Js'][i]**2)*(ToF.SS[i+1][-1]-ToF.SS[i+1][-2])*gradvec
 
     # Mass Gradient
-    #∫ ~ M 
+    #∫ ~!~ M 
     #∇∫ = e^p_i/w_i* ∑_j=i ^n   l_j^2 == e^p_i
     #this was the point of weight correction
     mass_gradient = masscostfactor*np.exp(params)
 
     # Distance Gradient
     #dont go too far
-    #f = 1/2||params - start_params||^2, grad = (params-start_params)ONES
+    #f = 1/2||params - start_params||^2, ∇f = (params-start_params)*ONES
     local_gradient = (params - OptToF.start_params)
 
+    #this simply conditions the mass_gradient to be of same magnitude as the objective gradient
+    #it is equivalent to choosing the masscostfactor very well each time
     mass_gradient *= np.linalg.norm(objective_gradient)
 
     #combine
     gradient = objective_gradient + OptToF.costfactor*mass_gradient + OptToF.localfactor*local_gradient
 
     if ToF.opts['use_atmosphere']:
-        gradient[:index - 1] = 0 #we avoid changing the gradient parameters since these must remain fixed. -1 because 1 less params than rho
+        gradient[:index - 1] = 0 #we avoid changing these atmospheric gradient parameters since these must remain fixed. -1 because 1 less params than rho
 
     time5 = time.perf_counter()
 
@@ -229,7 +239,7 @@ def calc_cost(ToF):
 def call_ToF(OptToF, ToF):
 
     """
-    Calls Algorithm from AlgoToF until either the accuray given by ToF.opts['dJ_tol'] is fulfilled 
+    Calls Algorithm from AlgoToF until either the accuray given by OptToF.ToF_convergence_tolerance is fulfilled 
     or ToF.opts['MaxIterHE'] is reached.
     """
 
@@ -258,7 +268,7 @@ def call_ToF(OptToF, ToF):
     
     #Save results, flipped since AlgoToF uses a different ordering logic:
     
-    ToF.A0        = out.A0
+    ToF.A0        = out.A0 #technically,
     ToF.As        = out.As #dont need these
     ToF.ss        = out.ss
     ToF.SS        = out.SS

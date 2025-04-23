@@ -73,22 +73,26 @@ class OptToF:
 
         """
         Initializes...
-        TODO: write 
-                #vector storing time taken for each subtask in seconds
-        - dens_param_calc:  Possibly updated parameters used by the density function set via set_density_function()
+        - improvement_running_average       Float, running average of the cost improvement ratio
+        - mass_fix_factor_running_average   Float, running average of the mass fix factor
+        - runtime_running_average           Float, running average of runtime. Used solely for estimated time remaining
+        - timing                            Array, time taken for each subtask in seconds: Rho | Integral | Factors | ToF | Gradients
+        - convergence_strikes               Int,   tracks number of times we determined to have converged. We need this because by sheer chance, improvement_running_average could be very close to 1 once (by, say, strong improvement and then worsening)
+        - learning_rate                     Float, learning rate for Adam. Here because some optimisation schemes required scheduling learning rate decay
+        - costfactor                        Float, cost factor for the mass fix gradient. Here because some optimisation schemes required adapting this factor during optimisation
+        - localfactor                       Float, cost factor for the locality gradient. Not used during my work but still here
+        - start_params                      Array, this doesnt need to be here, and yet it is. curious...
         """
 
         self.improvement_running_average    = 1
         self.mass_fix_factor_running_average= 1
-        self.timing                         = [0, 0, 0, 0, 0]         # Rho | Integral | Factors | ToF | Gradients
-        self.convergence_strikes            = 0
         self.runtime_running_average        = 10
+        self.timing                         = [0, 0, 0, 0, 0] # Rho | Integral | Factors | ToF | Gradients
+        self.convergence_strikes            = 0
         self.learning_rate                  = self.opts['learning rate']
         self.costfactor                     = self.opts['costfactor']
         self.localfactor                    = self.opts['localfactor']
         self.start_params                   = None
-
-
 
     def __init__(self, **kwargs):
 
@@ -103,8 +107,7 @@ class OptToF:
     def run(self, ToF):
 
         """
-        Uses the Adam algorithm for the given amount of steps on the given number of cores.
-        Each process will optimise until stopped.
+        Runs the Adam optimisation algorithm on the given instance of ToF.
         """
 
         #Set weights for rhoi
@@ -113,7 +116,8 @@ class OptToF:
         for i in range(len(self.weights)):
             self.weights[:i+1] += li2[i+1]*np.ones(i+1)
 
-        self.ToF_convergence_tolerance      = min(self.opts['ToF convergence tolerance'], 0.1*min(ToF.opts['Sigma_Js']))
+        #ToF convergence tolerance will always be at least 10 times better than our highest resolution Sigma J
+        self.ToF_convergence_tolerance = min(self.opts['ToF convergence tolerance'], 0.1*min(ToF.opts['Sigma_Js']))
 
         #Do the optimisation algorithm in a parallel manner on multiple cores:
         if self.opts['parallelize']:
@@ -124,10 +128,10 @@ class OptToF:
                 try:
                     for future in as_completed(futures):
                         future.result()
-                except KeyboardInterrupt:
+                except KeyboardInterrupt: #KeyboardInterrupts are hijacked to finish up current run.
                     if (self.opts['verbosity'] > 0): print(c.WARN + 'KeyboardInterrupt caught.'+ c.ENDC)
 
-        #Do the optimisation algorithm on a single core: TODO: Note this is currently unsupported. run parallel on one core lmao
+        #Do the optimisation algorithm on a single core:
         else:
             m = multiprocessing.Manager()
             lock = m.Lock()
@@ -138,7 +142,7 @@ class OptToF:
 
     def huh(self):
         print()
-        print(c.INFO + 'A confused little kitten has stumbled onto the terminal!' + c.ENDC)
+        print(c.ENDC + 'A confused little kitten has stumbled onto the terminal!' + c.ENDC)
         print()
         print()
         print('                                                     ／l、             ')
@@ -153,9 +157,20 @@ class OptToF:
         print(c.WARN + 'Termination request raised. Finishing current run.'+ c.ENDC)
 
 def categoriser(OptToF, ToF, lock):
+
+    """
+    Runs one instance of optimisation and categorises results.
+    Note the reason this function is defined outside of class scope is because of multithreading.
+    If it was part of the class, every process would be working on the same class (I think I'm just doing what some dude on stackoverflow told some other dude)
+    """
+    
     signal.signal(signal.SIGINT, OptToF.interrupt_handler)
-    while True:
+
+    while True: #This is always a good idea
+
+        #Run Optimisation
         starting_distr, result_distr, ToF = run_opt(OptToF, ToF)
+
         #Categorise success/fail
         are_Js_explained = True
         is_rho_MAX_respected = True
@@ -164,6 +179,7 @@ def categoriser(OptToF, ToF, lock):
         for i in range(min(len(ToF.opts['Target_Js']),len(ToF.Js)-1)):
             if abs((ToF.Js[i+1] - ToF.opts['Target_Js'][i])/ToF.opts['Sigma_Js'][i]) >= 1:
                 are_Js_explained = False
+
         #check if maximum density is explained
         if np.max(result_distr)>ToF.opts['rho_MAX']:
             is_rho_MAX_respected = False
@@ -171,33 +187,50 @@ def categoriser(OptToF, ToF, lock):
         result = np.array([starting_distr, result_distr])
 
         if OptToF.opts['write to file'] == True:
-            with lock:
+            with lock: #lock out other processes from writing to file
                 f = h5py.File(OptToF.opts['file location'], 'a')
                 dset = f.create_dataset(str(uuid.uuid4()), data = result)
                 dset.attrs['Js explained'] = are_Js_explained
                 dset.attrs['rho_MAX respected'] = is_rho_MAX_respected
                 f.close()
-            #np.savetxt(f, result, fmt='%1.8e', delimiter=',', newline=linesep)
-            #np.savez(g, result)
 
         if OptToF.opts['continuous running'] == False:
             break
         
+        #reset to initial conditions and LETS GO AGAIN WHEEEEEEEEEEE
         OptToF._set_IC()
 
+    #break gets you here
     if (OptToF.opts['verbosity'] > 0):
         r, g, b = ColorHash(getpid()).rgb
         cPID = '\033[38;2;' + str(r) + ';' + str(g) + ';' + str(b) + 'm'
         print(c.INFO + 'Process with ID ' + cPID + str(getpid()) + c.INFO + ' finished.'+ c.ENDC)
 
-    return
+    return #this is just for my spiritual fulfilment
 
 def run_opt(OptToF, ToF):
+
+    """
+    Congrats, you've finally made it down the daisychain of nested wrappers to the function that actually does the damn thing, except not really, this is mostly caretaking.
+    Essentially this is just:
+
+    PREPARE (starting parameters, optimiser etc)
+    (verbosity)
+    EPOCH LOOP:
+        (verbosity)
+        convergence check
+        MAIN OPTIMISATION LOOP:
+            a few steps of adam
+    (verbosity)
+    return
+
+    """
 
     #random.seed(3)
     np.set_printoptions(formatter={'float_kind':'{:.5e}'.format})
 
     #Find a random set of starting parameters:
+    #Note there are many starting generators available in StartGen. create_starting_point is just the only good one.
     tic = time.perf_counter()
     OptToF.start_params = create_starting_point(ToF, OptToF.weights)
     toc = time.perf_counter()
@@ -208,8 +241,9 @@ def run_opt(OptToF, ToF):
     params = OptToF.start_params.copy()
 
     #Set up the Adam Optimiser class
-    AdamOptimiser = Adam(learning_rate=OptToF.learning_rate) #This learning rate has been revealed to me by god
+    AdamOptimiser = Adam(learning_rate=OptToF.learning_rate)
 
+    #Verbosity -------------------------------------------------------------------------------------
     if (OptToF.opts['verbosity'] > 0) and OptToF.opts['parallelize'] == False:
         print()
         print(c.INFO + '==============================================================================' + c.ENDC)
@@ -225,14 +259,17 @@ def run_opt(OptToF, ToF):
         print(c.INFO + '              Beginning optimisation for process ID ' + cPID + str(getpid()) +  c.ENDC)
         print(c.INFO + '==============================================================================' + c.ENDC)
         print()
+    #Verbosity over---------------------------------------------------------------------------------
 
     #divide steps into epochs of epoch size each
     epochs = OptToF.opts['steps'] // OptToF.opts['epoch size']
-    steps = OptToF.opts['epoch size']
+    steps = OptToF.opts['epoch size'] #this is now steps per epoch
+
     #setup plots
     if OptToF.opts['figures']:
         figure, (devax, perax) = plt.subplots(1, 2)
         devax.plot(param_to_rho_exp_fixed(OptToF, ToF, OptToF.start_params), color = 'red')
+    
     #calculate first cost
     ToF.rhoi = param_to_rho_exp_fixed(OptToF, ToF, OptToF.start_params)
     call_ToF(OptToF, ToF)
@@ -241,6 +278,7 @@ def run_opt(OptToF, ToF):
 
     total_start_time = time.perf_counter()
 
+    # ======================================= THE LOOP™ ========================================
     for epoch in range(epochs):
 
         old_cost = new_cost
@@ -249,7 +287,7 @@ def run_opt(OptToF, ToF):
         if (epoch + 1) % 3 == 0:
             if OptToF.opts['figures']: devax.plot(param_to_rho_exp_fixed(OptToF, ToF, params), color = 'b', alpha = (epoch + 1)/epochs)
         
-        #Verbosity
+        #Verbosity -------------------------------------------------------------------------------------
         if (OptToF.opts['verbosity'] > 0):
             print()
             r, g, b = ColorHash(getpid()).rgb
@@ -278,13 +316,12 @@ def run_opt(OptToF, ToF):
         if OptToF.opts['early stopping'] and OptToF.convergence_strikes >= 2:
                 if OptToF.opts['verbosity'] > 0: print(c.INFO + 'Convergence detected. Terminating.' + c.ENDC)
                 break
-        if random.random() < OptToF.opts['kitty'] and OptToF.opts['verbosity'] > 0:
-
-            OptToF.huh()
+        if random.random() < OptToF.opts['kitty'] and OptToF.opts['verbosity'] > 0: OptToF.huh()
+        #Verbosity over---------------------------------------------------------------------------------
 
         tic = time.perf_counter()
 
-        #====================================== MAIN OPTIMISATION LOOP ======================================
+        # ====================================== MAIN OPTIMISATION LOOP ======================================
 
         for step in range(steps):
 
@@ -293,12 +330,15 @@ def run_opt(OptToF, ToF):
             cost_vector.append(calc_cost(ToF))
             OptToF.improvement_running_average = OptToF.update_running_average(OptToF.improvement_running_average, cost_vector[-1]/cost_vector[-2])
 
-        #====================================== MAIN OPTIMISATION LOOP ======================================
+        # ====================================== MAIN OPTIMISATION LOOP ======================================
 
         toc = time.perf_counter()
 
+    # ======================================= THE LOOP™ ENDED =======================================
+
     total_stop_time = time.perf_counter()
 
+    #Verbosity -------------------------------------------------------------------------------------
     if (OptToF.opts['verbosity'] > 0):
         if OptToF.opts['parallelize'] == False:
             print()
@@ -340,5 +380,6 @@ def run_opt(OptToF, ToF):
 
         if OptToF.opts['figures']: perax.semilogy(np.array(cost_vector))
         if OptToF.opts['figures']: plt.show()
+    #Verbosity over---------------------------------------------------------------------------------
 
     return param_to_rho_exp_fixed(OptToF, ToF, OptToF.start_params), param_to_rho_exp_fixed(OptToF, ToF, params), ToF

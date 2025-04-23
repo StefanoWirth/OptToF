@@ -134,7 +134,7 @@ def find_permutation_nonrec(Balls2Place, NBins):
 def create_starting_point_uniform_normalised(ToF, weights):
     N = ToF.opts['N']
     R = 6000
-    #Resolution, ie target max density. Value chosen to be somewhat realistic TODO: make this smart
+    #Resolution, ie target max density. Value chosen to be somewhat realistic. 
     ResultFunction = find_permutation_nonrec(R, N)
     for i in range(N-1):
         ResultFunction[i+1] = ResultFunction[i+1]+ResultFunction[i]
