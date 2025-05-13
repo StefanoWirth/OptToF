@@ -10,3 +10,4 @@ PyToF/FunctionGenerators.py
 PyToF/experiments.py
 PyToF/results.hdf5
 *.hdf5
+*.pkl
