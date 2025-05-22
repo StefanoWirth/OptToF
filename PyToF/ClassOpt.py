@@ -24,7 +24,13 @@ class OptToF:
 
     """
     This class contains the optimisation routine to run a descent method on planet data using the Theory of Figures.
-    Note: Only optimisation concerns are wrapped here, for ToF one should configure their instance of ClassToF
+    Create an instance and pass your desired kwargs through Optimiser = OptToF(**kwargs). When ready, call Optimiser.run(X), where X is an instance of ToF.
+    We highlight the following important hyperparameters that must be tuned:
+        learning rate:              the learning rate passed to Adam. Adam default: 0.001. Too low and convergence is slow, too high and chaos™. I used 0.05.
+        costfactor:                 the cost factor of the mass part of the gradient. Too low and mass cost is ignored. Too high and it doesnt see anything else in the gradient. Err on the side of too high. I used 1e5.
+        ToF convergence tolerance:  passed to ToF. Will be at least 1/10th of best sigma. Can be gung-ho with this. I used 1e-6
+        kitty:                      extremely important. set as high as it will possibly go.
+    Note: Only optimisation concerns are wrapped here, for ToF one should configure their instance of ClassToF.
     """
 
     def _default_opts(self, kwargs):
@@ -43,16 +49,16 @@ class OptToF:
                         'figures':                      True,           #Display figures
                         'early stopping':               True,           #Should the optimisation stop early if convergence is detected?
                         'convergence limit':            0.0005,         #Limit below which average increase is considered converged
-                        'ToF convergence tolerance':    1e-10,          
+                        'ToF convergence tolerance':    1e-8,          
                         'DBGshowchance':                0,              #Chance to show certain debug status prints
                         'continuous running':           False,          #Start new runs when old ones finished
                         'write to file':                False,          #Save results to file
                         'file location':                'results.hdf5', #Name of said file
                         'learning rate':                0.01,           #Adam learning rate
-                        'costfactor':                   1e0,            #A multiplier for the costfactor of the gradient to stay within the mass region of the target   
+                        'costfactor':                   1e8,            #A multiplier for the costfactor of the gradient to stay within the mass region of the target   
                         'localfactor':                  0,              #A multiplier to stay local to the starting distribution. Unsupported
                         'rolling average forgetfulness':0.7,            #How aggressively trackers should forget the past (0 is immediate, must be <1)
-                        'minimum increase':             1,              #minimum increase of rho at each step, can be a scalar or an np.array of shape params
+                        'minimum increase':             0,              #minimum increase of rho at each step, can be a scalar or an np.array of shape params
                         'kitty':                        0.001           #🐈
                         }
 

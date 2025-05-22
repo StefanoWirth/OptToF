@@ -10,9 +10,8 @@ from FunctionsToF import get_NMoI, _pressurize
 N_uranus = 1277081
 N_neptune = 1341762
 
-#TODO: ensure files 'bigrun_neptune.hdf5' and 'bigrun_uranus.hdf5' are in the same directory, as are ClassToF, AlgoToF, FunctionsToF.
-#TODO: note: resultplot is not for you, only resultgenerate
-is_neptune = False #TODO: change to false for uranus running. neptune should take about 1.5 days, uranus considerably less (4 hours).
+#IMPORTANT NOTICE: ensure files 'bigrun_neptune.hdf5' and 'bigrun_uranus.hdf5' are in the same directory, as are ClassToF, AlgoToF, FunctionsToF.
+is_neptune = False
 dodifferentjumpcriteria = True
 
 def save_results():

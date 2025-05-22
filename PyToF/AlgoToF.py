@@ -6,7 +6,7 @@ import numpy as np
 import scipy
 #import time
 
-from PyToF.color import c
+from color import c
 
 def default_opts():
 
