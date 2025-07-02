@@ -83,9 +83,16 @@ def param_to_rho_exp_fixed(OptToF, ToF, params):
 
 def gradient_vector_exp_fixed(ToF, params, gamma, weights):
     """Calculates the gradient vector in a fast way by reordering terms. May you achieve nirvana."""
-    nto1vec = np.arange(len(params), 0, -1)
-    #easy way to write sum of sum of e^pi/wi by reordering terms
-    return nto1vec - gamma*np.dot(nto1vec,np.exp(params)/weights)*weights
+    N = len(params) + 1
+    epoverwvec = np.zeros(N)
+    epoverwvec[1:] = np.exp(params)/weights
+    woverepvec = np.zeros(N)
+    woverepvec[1:] = weights/np.exp(params)
+    epoverwcumsum = np.cumsum(epoverwvec)
+    
+    woverepreversecumsum = np.cumsum(woverepvec[::-1])[::-1]
+
+    return epoverwvec[1:]*woverepreversecumsum[1:] - gamma * np.exp(params) * np.dot(epoverwcumsum, woverepvec)
 
 def full_gradient(OptToF, ToF, params):
 
@@ -268,8 +275,8 @@ def call_ToF(OptToF, ToF):
     
     #Save results, flipped since AlgoToF uses a different ordering logic:
     
-    ToF.A0        = out.A0 #technically,
-    ToF.As        = out.As #dont need these
+    ToF.A0        = out.A0
+    ToF.As        = out.As
     ToF.ss        = out.ss
     ToF.SS        = out.SS
     ToF.R_ratio   = out.R_ratio

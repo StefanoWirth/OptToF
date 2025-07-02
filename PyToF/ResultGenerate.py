@@ -10,6 +10,9 @@ from FunctionsToF import get_NMoI, _pressurize
 N_uranus = 1277081
 N_neptune = 1341762
 
+rho_max = 2e4
+p_max = 3e12
+
 #IMPORTANT NOTICE: ensure files 'bigrun_neptune.hdf5' and 'bigrun_uranus.hdf5' are in the same directory, as are ClassToF, AlgoToF, FunctionsToF.
 is_neptune = False
 dodifferentjumpcriteria = True
@@ -23,10 +26,10 @@ def save_results():
 
     #neptune
     if is_neptune:
-        filename = 'bigrun_neptune.hdf5'
+        filename = 'newrun_neptune.hdf5'
     #uranus
     else:
-        filename = 'bigrun_uranus.hdf5'
+        filename = 'newrun_uranus.hdf5'
 
 
     with h5py.File(filename, 'r') as f:
@@ -45,6 +48,13 @@ def save_results():
     print("Total time to generate results:  " + time.strftime("%M:%S", time.gmtime((toc-tic))))
     print("Of which file handling:          " + time.strftime("%M:%S", time.gmtime(darktime + timing[0])))
     print("Of which dataset analysing:      " + time.strftime("%M:%S", time.gmtime(timing[1] + timing[2] + timing[3] + timing[4] + timing[5])))
+    print()
+    print("Number of datasets analysed:     " + str(results['n']))
+    print("Number of which respect rho_MAX: " + str(results['nR']))
+    print("Number of which explain Js:      " + str(results['nJ']))
+    print("Percentage respect rho_MAX:      " + '{:.2%}'.format(results['rho_MAX respected%']))
+    print("Percentage explained Js:         " + '{:.2%}'.format(results['Js explained%']))
+
     return
 
 def interrupt_handler(sig, frame):
@@ -139,7 +149,7 @@ def generate_results(f):
 
     RES = 4*N
     x = np.arange(N)
-    y = np.linspace(0, 2e4, RES)
+    y = np.linspace(0, rho_max, RES)
     distr_grid_dens = np.zeros((N, RES))
     distr_grid_pressure = np.zeros((N, RES))
 
@@ -210,10 +220,9 @@ def generate_results(f):
     print('Time spent on initial generation:' + time.strftime("%M:%S", time.gmtime((jumptiming[5]))))
     print('Time to find jumps:              ' + time.strftime("%M:%S", time.gmtime((jumptiming[6]))))
     #algotof | moments of inertia | pressure
-    print('Time spent on AlgoToF:           ' + time.strftime("%M:%S", time.gmtime((toftiming[0]))))
-    print('Time spent on MoI:               ' + time.strftime("%M:%S", time.gmtime((toftiming[1]))))
-    print('Time to pressurise:              ' + time.strftime("%M:%S", time.gmtime((toftiming[2]))))
-
+    #print('Time spent on AlgoToF:           ' + time.strftime("%M:%S", time.gmtime((toftiming[0]))))
+    #print('Time spent on MoI:               ' + time.strftime("%M:%S", time.gmtime((toftiming[1]))))
+    #print('Time to pressurise:              ' + time.strftime("%M:%S", time.gmtime((toftiming[2]))))
 
     return results
 
@@ -237,8 +246,11 @@ def analyse_dataset(name, object):
 
     starting_rho = object[0]
     rho = object[1]
+    pressure = object[2]
     rhoexplained = object.attrs['rho_MAX respected']
     Jsexplained = object.attrs['Js explained']
+    flattening_ratio = object.attrs['flattening ratio']
+    nmoi = object.attrs['nmoi']
 
     time1 = time.perf_counter()
 
@@ -273,37 +285,18 @@ def analyse_dataset(name, object):
 
     time3 = time.perf_counter()
 
-    #algotof | moments of inertia | pressure
+    #flattening ratios | moments of inertia | pressure
 
     if Jsexplained == True:
-        toftime0 = time.perf_counter()
-        #ToF and others
-        X.rhoi = rho
-        #Implement the Theory of Figures:
-        X.Js, out = AlgoToF.Algorithm(X.li, X.rhoi, X.m_rot_calc, alphas = np.zeros(12), order = 4, tol = 1e-5, maxiter = 100, verbosity = 0)
-        #Save results
-        X.A0        = out.A0
-        X.ss        = out.ss
-        X.SS        = out.SS
-        X.R_ratio   = out.R_ratio
-        flattening_ratios.append(X.R_ratio)
-        toftime1 = time.perf_counter()
-        moments_of_inertia.append(get_NMoI(X, N = 201))
-        toftime2 = time.perf_counter()
-        _pressurize(X)
-        pressure = X.Pi
-        toftime3 = time.perf_counter()
-
-        toftiming[0] += toftime1 - toftime0
-        toftiming[1] += toftime2 - toftime1
-        toftiming[2] += toftime3 - toftime2
+        flattening_ratios.append(flattening_ratio)
+        moments_of_inertia.append(nmoi)
 
     time4 = time.perf_counter()
 
     if Jsexplained == True:
         #distribution
-        distr_grid_dens[np.arange(N), np.floor_divide(rho * RES, 2e4, casting='unsafe' ,dtype=np.dtype(int))] += 1
-        distr_grid_pressure[np.arange(N), np.minimum(np.floor_divide(pressure * RES, 2e12, casting='unsafe' ,dtype=np.dtype(int)), RES - 1)] += 1
+        distr_grid_dens[np.arange(N), np.floor_divide(rho * RES, rho_max, casting='unsafe' ,dtype=np.dtype(int))] += 1
+        distr_grid_pressure[np.arange(N), np.minimum(np.floor_divide(pressure * RES, p_max, casting='unsafe' ,dtype=np.dtype(int)), RES - 1)] += 1
         #the amount of obscure wizardry performed in one singular line here is likely hitherto unparalleled
         # actually its just indexing over all x and the y index rho * RES // max_RHO (linear interpolation from 0 to max_RHO) with a safeguard
     time5 = time.perf_counter()

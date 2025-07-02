@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from ClassAdam import Adam
 from OptToF import *
 from StartGen import *
+from FunctionsToF import get_NMoI, _pressurize
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing
 import time
@@ -84,6 +85,7 @@ class OptToF:
         - runtime_running_average           Float, running average of runtime. Used solely for estimated time remaining
         - timing                            Array, time taken for each subtask in seconds: Rho | Integral | Factors | ToF | Gradients
         - convergence_strikes               Int,   tracks number of times we determined to have converged. We need this because by sheer chance, improvement_running_average could be very close to 1 once (by, say, strong improvement and then worsening)
+        - has_already_converged             Bool,  tracks if we've already converged once (for double momentum behaviour). CURRENTLY UNUSED
         - learning_rate                     Float, learning rate for Adam. Here because some optimisation schemes required scheduling learning rate decay
         - costfactor                        Float, cost factor for the mass fix gradient. Here because some optimisation schemes required adapting this factor during optimisation
         - localfactor                       Float, cost factor for the locality gradient. Not used during my work but still here
@@ -95,6 +97,7 @@ class OptToF:
         self.runtime_running_average        = 10
         self.timing                         = [0, 0, 0, 0, 0] # Rho | Integral | Factors | ToF | Gradients
         self.convergence_strikes            = 0
+        self.has_already_converged          = True
         self.learning_rate                  = self.opts['learning rate']
         self.costfactor                     = self.opts['costfactor']
         self.localfactor                    = self.opts['localfactor']
@@ -190,7 +193,10 @@ def categoriser(OptToF, ToF, lock):
         if np.max(result_distr)>ToF.opts['rho_MAX']:
             is_rho_MAX_respected = False
 
-        result = np.array([starting_distr, result_distr])
+        _pressurize(ToF)
+        result_pressure = ToF.Pi
+
+        result = np.array([starting_distr, result_distr, result_pressure])
 
         if OptToF.opts['write to file'] == True:
             with lock: #lock out other processes from writing to file
@@ -198,11 +204,16 @@ def categoriser(OptToF, ToF, lock):
                 dset = f.create_dataset(str(uuid.uuid4()), data = result)
                 dset.attrs['Js explained'] = are_Js_explained
                 dset.attrs['rho_MAX respected'] = is_rho_MAX_respected
+                dset.attrs['flattening ratio'] = ToF.R_ratio
+                dset.attrs['nmoi'] = get_NMoI(ToF, N = 201)
                 f.close()
+        
+        #print(are_Js_explained)
 
         if OptToF.opts['continuous running'] == False:
             break
         
+
         #reset to initial conditions and LETS GO AGAIN WHEEEEEEEEEEE
         OptToF._set_IC()
 
@@ -232,7 +243,7 @@ def run_opt(OptToF, ToF):
 
     """
 
-    #random.seed(3)
+    #random.seed(6)
     np.set_printoptions(formatter={'float_kind':'{:.5e}'.format})
 
     #Find a random set of starting parameters:
@@ -247,7 +258,7 @@ def run_opt(OptToF, ToF):
     params = OptToF.start_params.copy()
 
     #Set up the Adam Optimiser class
-    AdamOptimiser = Adam(learning_rate=OptToF.learning_rate)
+    AdamOptimiser = Adam(learning_rate=OptToF.learning_rate, beta1=0.9, beta2=0.999)
 
     #Verbosity -------------------------------------------------------------------------------------
     if (OptToF.opts['verbosity'] > 0) and OptToF.opts['parallelize'] == False:
@@ -289,8 +300,11 @@ def run_opt(OptToF, ToF):
 
         old_cost = new_cost
         new_cost = calc_cost(ToF)
+
+        #if (ToF.Js[1]-ToF.opts['Target_Js'][0])**2/ToF.opts['Sigma_Js'][0]**2 < 1: OptToF.costfactor *= 10
+        #else: OptToF.costfactor
         
-        if (epoch + 1) % 3 == 0:
+        if True or (epoch + 1) % 3 == 0:
             if OptToF.opts['figures']: devax.plot(param_to_rho_exp_fixed(OptToF, ToF, params), color = 'b', alpha = (epoch + 1)/epochs)
         
         #Verbosity -------------------------------------------------------------------------------------
@@ -320,8 +334,14 @@ def run_opt(OptToF, ToF):
         if abs(new_cost/old_cost-1) < OptToF.opts['convergence limit']: OptToF.convergence_strikes += 1
         else: OptToF.convergence_strikes = 0
         if OptToF.opts['early stopping'] and OptToF.convergence_strikes >= 2:
-                if OptToF.opts['verbosity'] > 0: print(c.INFO + 'Convergence detected. Terminating.' + c.ENDC)
-                break
+                if OptToF.has_already_converged == True:
+                    if OptToF.opts['verbosity'] > 0: print(c.INFO + 'Convergence detected. Terminating.' + c.ENDC)
+                    break
+                else:
+                    AdamOptimiser.beta1 = 0.9
+                    OptToF.has_already_converged = True
+                    OptToF.convergence_strikes = 0
+
         if random.random() < OptToF.opts['kitty'] and OptToF.opts['verbosity'] > 0: OptToF.huh()
         #Verbosity over---------------------------------------------------------------------------------
 

@@ -29,20 +29,23 @@ if __name__ == '__main__':
     kwargs = {}
 
     kwargs['verbosity'] = 0
-    kwargs['time'] = False
+    kwargs['time'] = True
     kwargs['parallelize'] = True
     kwargs['steps'] = 3000
-    kwargs['learning rate'] = 0.05  #This learning rate has been revealed to me by god
-    kwargs['costfactor'] = 1e5
+    kwargs['epoch size'] = 25
+    kwargs['learning rate'] = 0.08  #This learning rate has been revealed to me by god
+    kwargs['costfactor'] = 1e2
     kwargs['ToF convergence tolerance'] = 1e-6
     kwargs['figures'] = False
     kwargs['kitty'] = 0
     kwargs['write to file'] = True
     kwargs['continuous running'] = True
-    kwargs['cores'] = 6
-    kwargs['file location'] = 'bigrun_uranus_uniform.hdf5'
+    kwargs['cores'] = 8
+    kwargs['file location'] = 'newrun_uranus.hdf5'
     kwargs['minimum increase'] = 1
-
+    kwargs['DBGshowchance'] = 0
+    #print('learning rate: '+str(kwargs['learning rate']))
+    #print('cost factor: '+str(kwargs['costfactor']))
     Optimiser = OptToF(**kwargs)
 
     Optimiser.run(X)

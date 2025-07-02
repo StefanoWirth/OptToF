@@ -554,13 +554,13 @@ def generate_plots():
     uppersdlocation = maxdensbinlocations[uppersdindex]
     uppersdvalue = maxdensbinvalues[uppersdindex]
 
-    twolowersdindex = np.digitize(twolowersd[-1], maxdensbinedges)
-    twolowersdlocation = maxdensbinlocations[twolowersdindex]
-    twolowersdvalue = maxdensbinvalues[twolowersdindex]
+    #twolowersdindex = np.digitize(twolowersd[-1], maxdensbinedges)
+    #twolowersdlocation = maxdensbinlocations[twolowersdindex]
+    #twolowersdvalue = maxdensbinvalues[twolowersdindex]
 
-    twouppersdindex = np.digitize(twouppersd[-1], maxdensbinedges)
-    twouppersdlocation = maxdensbinlocations[twouppersdindex]
-    twouppersdvalue = maxdensbinvalues[twouppersdindex]
+    #twouppersdindex = np.digitize(twouppersd[-1], maxdensbinedges)
+    #twouppersdlocation = maxdensbinlocations[twouppersdindex]
+    #twouppersdvalue = maxdensbinvalues[twouppersdindex]
 
     #saveaxs[3][1].vlines(modelocation, ymin = 0, ymax = modevalue, linestyle ='-', color = 'xkcd:violet')
     #saveaxs[3][1].text(modelocation, modevalue, '{:.2f}'.format(modelocation/1000), ha='left', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small')
