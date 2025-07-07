@@ -1,5 +1,7 @@
 from ClassToF import ToF
 from ClassOpt import OptToF
+from planet_data.Uranus import Uranus
+from planet_data.Neptune import Neptune
 
 """
 This process runs at a cost of 45 KB per minute per core (Intel Core i7-8650U @ 2.40GHz)
@@ -11,24 +13,41 @@ if __name__ == '__main__':
     kwargs = {}
 
     kwargs['N']      = 2**10
-    kwargs['G']      = 6.6743e-11
-    kwargs['M_init'] = 86.8127e24
-    kwargs['R_init'] = 25559*1e3
-    kwargs['Period'] = 62080
-    kwargs['P0']     = 1e5
-    kwargs['Target_Js'] = [3509.291e-6, -35.522e-6] #https://doi.org/10.1051/0004-6361/202244537
-    kwargs['Sigma_Js']  = [0.412e-6, 0.466e-6] #https://doi.org/10.1051/0004-6361/202244537
     kwargs['verbosity'] = 0
-    kwargs['MaxIterHE'] = 100
+    kwargs['MaxIterShape'] = 100
     kwargs['use_atmosphere'] = False
     kwargs['atmosphere'] = None
     kwargs['atmosphere_until'] = None
 
-    X = ToF(**kwargs)
+    #Uranus
+
+    kwargs['G']      = Uranus.G
+    kwargs['M_phys'] = Uranus.M
+    kwargs['R_ref'] = Uranus.R_ref
+    kwargs['R_phys'] = [Uranus.R, Uranus.R_type]
+    kwargs['Period'] = Uranus.Prot
+    kwargs['P0']     = 0
+    kwargs['Target_Js'] = Uranus.Target_Js
+    kwargs['Sigma_Js']  = Uranus.Sigma_Js
+
+    UranusToF = ToF(**kwargs)
+
+    #Neptune
+
+    kwargs['G']      = Neptune.G
+    kwargs['M_phys'] = Neptune.M
+    kwargs['R_ref'] = Neptune.R_ref
+    kwargs['R_phys'] = [Neptune.R, Neptune.R_type]
+    kwargs['Period'] = Neptune.Prot
+    kwargs['P0']     = 0
+    kwargs['Target_Js'] = Neptune.Target_Js
+    kwargs['Sigma_Js']  = Neptune.Sigma_Js
+
+    NeptuneToF = ToF(**kwargs)
 
     kwargs = {}
 
-    kwargs['verbosity'] = 0
+    kwargs['verbosity'] = 3
     kwargs['time'] = True
     kwargs['parallelize'] = True
     kwargs['steps'] = 3000
@@ -36,16 +55,16 @@ if __name__ == '__main__':
     kwargs['learning rate'] = 0.08  #This learning rate has been revealed to me by god
     kwargs['costfactor'] = 1e2
     kwargs['ToF convergence tolerance'] = 1e-6
-    kwargs['figures'] = False
+    kwargs['figures'] = True
     kwargs['kitty'] = 0
     kwargs['write to file'] = True
-    kwargs['continuous running'] = True
+    kwargs['continuous running'] = False
     kwargs['cores'] = 8
-    kwargs['file location'] = 'newrun_uranus.hdf5'
+    kwargs['file location'] = 'newrun_uranus.hdf5' #TODO: MODIFY
     kwargs['minimum increase'] = 1
     kwargs['DBGshowchance'] = 0
     #print('learning rate: '+str(kwargs['learning rate']))
     #print('cost factor: '+str(kwargs['costfactor']))
     Optimiser = OptToF(**kwargs)
 
-    Optimiser.run(X)
+    Optimiser.run(UranusToF) #TODO: MODIFY

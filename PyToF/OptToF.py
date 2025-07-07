@@ -75,7 +75,7 @@ def param_to_rho_exp_fixed(OptToF, ToF, params):
 
     rho = np.zeros(len(params)+1) #params represent rho-jumps (drho), so we need one more rho
     rho[1:] = np.cumsum(np.exp(params)/OptToF.weights) #first rho is always zero
-    MassFixFactor = ToF.opts['M_init']/(-4*np.pi*scipy.integrate.simpson(rho*ToF.li**2, ToF.li))
+    MassFixFactor = ToF.opts['M_phys']/(-4*np.pi*scipy.integrate.simpson(rho*ToF.li**2, ToF.li))
     rho *= MassFixFactor
     OptToF.mass_fix_factor_running_average = OptToF.update_running_average(OptToF.mass_fix_factor_running_average, MassFixFactor)
     if random.random() < OptToF.opts['DBGshowchance']: print("MassFixFactor was: " + str(MassFixFactor))
@@ -116,7 +116,7 @@ def full_gradient(OptToF, ToF, params):
     #calculate the real rho
     ToF.rhoi = param_to_rho_exp_fixed(OptToF, ToF, params)
     #assert the mass is correct
-    #assert(abs(abs(-4*np.pi*scipy.integrate.simpson(ToF.rhoi*ToF.li**2, ToF.li)/ToF.opts['M_init'])-1)<0.01), "MassIntError: Density curve does not fit Planet Mass within 1% margin"
+    #assert(abs(abs(-4*np.pi*scipy.integrate.simpson(ToF.rhoi*ToF.li**2, ToF.li)/ToF.opts['M_phys'])-1)<0.01), "MassIntError: Density curve does not fit Planet Mass within 1% margin"
 
     time1 = time.perf_counter()
 
@@ -128,7 +128,7 @@ def full_gradient(OptToF, ToF, params):
     #gamma = (dl/∫)
     gamma = abs(ToF.li[2]-ToF.li[1])/(integral)
     #factor for mass cost gradient, 2*(4π∫/M-1)*4π/M*∇∫
-    fourpioverm = 4*np.pi/ToF.opts['M_init']
+    fourpioverm = 4*np.pi/ToF.opts['M_phys']
     masscostfactor = 2*fourpioverm*(fourpioverm*integral-1)
 
     #Phase 2: ToF
@@ -182,7 +182,7 @@ def full_gradient(OptToF, ToF, params):
     gradvec = gradient_vector_exp_fixed(ToF, params, gamma, OptToF.weights)
 
     for i in range(n):
-        temp = -(1/n)*(ToF.R_ratio**(2*(i+1)))*((ToF.Js[i+1] - ToF.opts['Target_Js'][i])/ToF.opts['Sigma_Js'][i]**2)*(ToF.SS[i+1][-1]-ToF.SS[i+1][-2])*gradvec
+        temp = -(1/n)*(ToF.R_eq_to_R_m**(2*(i+1)))*((ToF.Js[i+1] - ToF.opts['Target_Js'][i])/ToF.opts['Sigma_Js'][i]**2)*(ToF.SS[i+1][-1]-ToF.SS[i+1][-2])*gradvec
         objective_gradient += temp
         if Flag:
             print("Magnitude of J gradient Nr " + str(2*(i+1)))
@@ -257,20 +257,23 @@ def call_ToF(OptToF, ToF):
 
         for i in range(len(alphas)):
 
-            alphas[i] = 2*(i+1) * (ToF.li[0])**(2*i) * ToF.opts['alphas'][i] / ( ( ToF.m_rot_calc*ToF.opts['G']*ToF.opts['M_init'] ) / ToF.li[0]**3 ) / ToF.opts['R_init']**(2*(i+1))
+            alphas[i] = 2*(i+1) * (ToF.li[0])**(2*i) * ToF.opts['alphas'][i] / ( ( ToF.m_rot_calc*ToF.opts['G']*ToF.opts['M_phys'] ) / ToF.li[0]**3 ) / ToF.opts['R_ref']**(2*(i+1))
 
     #Implement the Theory of Figures: 
-    ToF.Js, out = AlgoToF.Algorithm(  ToF.li,
+    ToF.Js, out = AlgoToF.Algorithm(        ToF.li,
                                             ToF.rhoi,
                                             ToF.m_rot_calc,
+
                                             order       = ToF.opts['order'],
-                                            nx          = ToF.opts['nx'],
+                                            n_bin       = ToF.opts['n_bin'],
                                             tol         = OptToF.ToF_convergence_tolerance,
-                                            maxiter     = ToF.opts['MaxIterHE'],
+                                            maxiter     = ToF.opts['MaxIterShape'],
                                             verbosity   = ToF.opts['verbosity'],
+
+                                            R_ref       = ToF.opts['R_ref'],
+                                            ss_initial  = ToF.ss,
                                             alphas      = alphas,
-                                            H           = ToF.opts['H'],
-                                            ss_guesses  = ToF.ss
+                                            H           = ToF.opts['H']
                                             )
     
     #Save results, flipped since AlgoToF uses a different ordering logic:
@@ -279,6 +282,7 @@ def call_ToF(OptToF, ToF):
     ToF.As        = out.As
     ToF.ss        = out.ss
     ToF.SS        = out.SS
-    ToF.R_ratio   = out.R_ratio
+    ToF.R_eq_to_R_m   = out.R_eq_to_R_m
+    ToF.R_po_to_R_m   = out.R_po_to_R_m
 
     return

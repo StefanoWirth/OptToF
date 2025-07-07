@@ -202,9 +202,11 @@ def categoriser(OptToF, ToF, lock):
             with lock: #lock out other processes from writing to file
                 f = h5py.File(OptToF.opts['file location'], 'a')
                 dset = f.create_dataset(str(uuid.uuid4()), data = result)
+                dset.attrs['J2'] = ToF.Js[1]
+                dset.attrs['J4'] = ToF.Js[2]
                 dset.attrs['Js explained'] = are_Js_explained
                 dset.attrs['rho_MAX respected'] = is_rho_MAX_respected
-                dset.attrs['flattening ratio'] = ToF.R_ratio
+                dset.attrs['flattening ratio'] = ToF.R_eq_to_R_m
                 dset.attrs['nmoi'] = get_NMoI(ToF, N = 201)
                 f.close()
         

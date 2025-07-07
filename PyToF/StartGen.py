@@ -15,7 +15,7 @@ def parameterise_starting_points(ToF, weights, ResultFunction):
     assert(ResultFunction[1]>0), "Error: Outermost nonendpoint density is zero"
     assert(ToF.opts['N'] == len(ResultFunction)), "Error: Generated density function is not of correct length."
     #after the raw resultfunction has been generated, it needs to be preconditioned for total mass agreeing
-    MassFixFactor = ToF.opts['M_init']/(-4*np.pi*scipy.integrate.simpson(ResultFunction*ToF.li**2, ToF.li))
+    MassFixFactor = ToF.opts['M_phys']/(-4*np.pi*scipy.integrate.simpson(ResultFunction*ToF.li**2, ToF.li))
     ResultFunction *= MassFixFactor
     if ToF.opts['verbosity'] > 2: print(c.INFO + "MassFixFactor for initial generation was: " + c.NUMB + '{:.2f}'.format(MassFixFactor) + c.ENDC)
     #then, we need to obtain parameters from the conditioned function (note fudging factor p_alpha should be 1 now)
