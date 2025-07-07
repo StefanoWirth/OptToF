@@ -279,7 +279,6 @@ def call_ToF(OptToF, ToF):
     #Save results, flipped since AlgoToF uses a different ordering logic:
     
     ToF.A0        = out.A0
-    ToF.As        = out.As
     ToF.ss        = out.ss
     ToF.SS        = out.SS
     ToF.R_eq_to_R_m   = out.R_eq_to_R_m
