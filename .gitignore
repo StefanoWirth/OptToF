@@ -13,3 +13,4 @@ PyToF/results.hdf5
 *.pkl
 /PyToF/planet_data
 /PyToF/plots
+*.png
