@@ -26,6 +26,9 @@ N_neptune = 1341762
 N = 2**10    #size of datasets
 RES = 4*N
 
+rho_max = 2e4
+p_max = 3e12
+
 is_neptune = False
 
 def generate_plots():
@@ -181,38 +184,38 @@ def generate_plots():
 
     #saveaxs[1][0].set_title('Distribution of density profiles, log scale' + plottitlestr)
     log_grid = results['distr grid density']
-    logdistr = saveaxs[1][0].imshow((np.transpose(log_grid)), cmap = 'plasma', norm = col.LogNorm(), aspect = 'auto', origin = 'lower', extent = (-0.5, N-0.5, -0.5, 2e4-0.5))
+    logdistr = saveaxs[1][0].imshow((np.transpose(log_grid)), cmap = 'plasma', norm = col.LogNorm(), aspect = 'auto', origin = 'lower', extent = (-0.5, N-0.5, -0.5, rho_max-0.5))
     cbar = savefig[1][0].colorbar(logdistr, ax=saveaxs[1][0])
     cbar.set_label(label = 'Relative frequency', labelpad = 14)
 
     #literature values
     x = np.linspace(1,0,1024)
     if is_neptune:
-        nettelmanNone = 1000*np.flip(np.loadtxt(r'planet_data\literature_values\Neptune\table_N1.txt')[:,4])
-        nettelmanNonex = np.flip(np.loadtxt(r'planet_data\literature_values\Neptune\table_N1.txt')[:,2])
+        nettelmanNone = 1000*np.flip(np.loadtxt(r'planet_data/literature_values/Neptune/table_N1.txt')[:,4])
+        nettelmanNonex = np.flip(np.loadtxt(r'planet_data/literature_values/Neptune/table_N1.txt')[:,2])
         nettelmanNonex /= nettelmanNonex[-1]
-        nettelmanNtwo = 1000*np.flip(np.loadtxt(r'planet_data\literature_values\Neptune\table_N2b.txt')[:,4])
-        nettelmanNtwox = np.flip(np.loadtxt(r'planet_data\literature_values\Neptune\table_N2b.txt')[:,2])
+        nettelmanNtwo = 1000*np.flip(np.loadtxt(r'planet_data/literature_values/Neptune/table_N2b.txt')[:,4])
+        nettelmanNtwox = np.flip(np.loadtxt(r'planet_data/literature_values/Neptune/table_N2b.txt')[:,2])
         nettelmanNtwox /= nettelmanNtwox[-1]
         saveaxs[1][0].plot(np.interp(x, nettelmanNonex, nettelmanNone), linestyle ='-', linewidth = 1, color = 'xkcd:marigold')
         saveaxs[1][0].plot(np.interp(x, nettelmanNtwox, nettelmanNtwo), linestyle ='--', linewidth = 1, color = 'xkcd:marigold')
 
     else: 
-        nettelmanUone = 1000*np.flip(np.loadtxt(r'planet_data\literature_values\Uranus\table_U1.txt')[:,4])
-        nettelmanUonex = np.flip(np.loadtxt(r'planet_data\literature_values\Uranus\table_U1.txt')[:,2])
+        nettelmanUone = 1000*np.flip(np.loadtxt(r'planet_data/literature_values/Uranus/table_U1.txt')[:,4])
+        nettelmanUonex = np.flip(np.loadtxt(r'planet_data/literature_values/Uranus/table_U1.txt')[:,2])
         nettelmanUonex /= nettelmanUonex[-1]
-        nettelmanUtwo = 1000*np.flip(np.loadtxt(r'planet_data\literature_values\Uranus\table_U2.txt')[:,4])
-        nettelmanUtwox = np.flip(np.loadtxt(r'planet_data\literature_values\Uranus\table_U2.txt')[:,2])
+        nettelmanUtwo = 1000*np.flip(np.loadtxt(r'planet_data/literature_values/Uranus/table_U2.txt')[:,4])
+        nettelmanUtwox = np.flip(np.loadtxt(r'planet_data/literature_values/Uranus/table_U2.txt')[:,2])
         nettelmanUtwox /= nettelmanUtwox[-1]
         saveaxs[1][0].plot(np.interp(x, nettelmanUonex, nettelmanUone), linestyle ='-', linewidth = 1, color = 'xkcd:marigold')
         saveaxs[1][0].plot(np.interp(x, nettelmanUtwox, nettelmanUtwo), linestyle ='--', linewidth = 1, color = 'xkcd:marigold')
-        helled = 1000*np.flip(np.loadtxt(r'planet_data\literature_values\Uranus\density_ravit_1.txt')[:,1])
-        helledx = np.flip(np.loadtxt(r'planet_data\literature_values\Uranus\density_ravit_1.txt')[:,0])
+        helled = 1000*np.flip(np.loadtxt(r'planet_data/literature_values/Uranus/density_ravit_1.txt')[:,1])
+        helledx = np.flip(np.loadtxt(r'planet_data/literature_values/Uranus/density_ravit_1.txt')[:,0])
         saveaxs[1][0].plot(np.interp(x, helledx, helled), linestyle ='-', linewidth = 1, color = 'xkcd:deep red')
-        vazantwo = (np.loadtxt(r'planet_data\literature_values\Uranus\vazan_2.txt')[:,3])
-        vazantwox = (np.loadtxt(r'planet_data\literature_values\Uranus\vazan_2.txt')[:,0])
-        vazanthree = (np.loadtxt(r'planet_data\literature_values\Uranus\vazan_3.txt')[:,3])
-        vazanthreex = (np.loadtxt(r'planet_data\literature_values\Uranus\vazan_3.txt')[:,0])
+        vazantwo = (np.loadtxt(r'planet_data/literature_values/Uranus/vazan_2.txt')[:,3])
+        vazantwox = (np.loadtxt(r'planet_data/literature_values/Uranus/vazan_2.txt')[:,0])
+        vazanthree = (np.loadtxt(r'planet_data/literature_values/Uranus/vazan_3.txt')[:,3])
+        vazanthreex = (np.loadtxt(r'planet_data/literature_values/Uranus/vazan_3.txt')[:,0])
         saveaxs[1][0].plot(np.interp(x, vazantwox, vazantwo), linestyle ='-', linewidth = 1, color = 'xkcd:sky blue')
         saveaxs[1][0].plot(np.interp(x, vazanthreex, vazanthree), linestyle ='--', linewidth = 1, color = 'xkcd:sky blue')
 
@@ -226,7 +229,7 @@ def generate_plots():
     saveaxs[1][0].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
     #axins = zoomed_inset_axes(saveaxs[1][0], zoom = 2, loc='upper right')
     axins = inset_zoom_axes(saveaxs[1][0], [0.5, 0.5, 0.45, 0.45])
-    #axins.imshow((np.transpose(log_grid)), cmap = 'plasma', norm = col.LogNorm(), aspect = 'auto', origin = 'lower', extent = (-0.5, N-0.5, -0.5, 2e4-0.5))
+    #axins.imshow((np.transpose(log_grid)), cmap = 'plasma', norm = col.LogNorm(), aspect = 'auto', origin = 'lower', extent = (-0.5, N-0.5, -0.5, rho_max-0.5))
     axins.set_xticks([0,100,200,300], [1.0,0.9,0.8,0.7])
     axins.set_xlim(300,0)
     axins.set_ylim(0,2000)
@@ -253,19 +256,19 @@ def generate_plots():
         while level < 10:
             while cumulative_distr[x, y] < 0.5-contourintervals[level]/2:
                 percentile_grid[x, y] += level
-                if cumulative_distr[x, y] > 0.025 and twolowersd[x] == -1: twolowersd[x] = y*2e4/RES
-                if cumulative_distr[x, y] > 0.16  and lowersd[x] == -1: lowersd[x] = y*2e4/RES
+                if cumulative_distr[x, y] > 0.025 and twolowersd[x] == -1: twolowersd[x] = y*rho_max/RES
+                if cumulative_distr[x, y] > 0.16  and lowersd[x] == -1: lowersd[x] = y*rho_max/RES
                 y += 1
             level += 1
         level -= 1
         while level > -1:
             while cumulative_distr[x, y] < 0.5+contourintervals[level]/2:
                 percentile_grid[x, y] += level + 1
-                if cumulative_distr[x, y] > 0.5   and contourmedian[x] == -1: contourmedian[x] = y*2e4/RES
-                if cumulative_distr[x, y] > 0.84  and uppersd[x] == -1: uppersd[x] = y*2e4/RES
+                if cumulative_distr[x, y] > 0.5   and contourmedian[x] == -1: contourmedian[x] = y*rho_max/RES
+                if cumulative_distr[x, y] > 0.84  and uppersd[x] == -1: uppersd[x] = y*rho_max/RES
                 y += 1
             level -= 1
-        twouppersd[x] = y*2e4/RES
+        twouppersd[x] = y*rho_max/RES
         """
         for y in range(RES):
             cumulative += results['distr grid density'][x, y]
@@ -305,19 +308,19 @@ def generate_plots():
 
     #saveaxs[1][4].set_title('Distribution of pressure profiles, log scale' + plottitlestr)
     log_grid = results['distr grid pressure']
-    logdistr = saveaxs[1][4].imshow((np.transpose(log_grid)), cmap = 'plasma', norm = col.LogNorm(), aspect = 'auto', origin = 'lower', extent = (-0.5, N-0.5, -0.5, 2e12-0.5))
+    logdistr = saveaxs[1][4].imshow((np.transpose(log_grid)), cmap = 'plasma', norm = col.LogNorm(), aspect = 'auto', origin = 'lower', extent = (-0.5, N-0.5, -0.5, p_max-0.5))
     cbar = savefig[1][4].colorbar(logdistr, ax=saveaxs[1][4])
     cbar.set_label(label = 'Relative frequency', labelpad = 14)
     saveaxs[1][4].invert_xaxis()
     saveaxs[1][4].set_xticks(xticklocations, xticklabels)
     saveaxs[1][4].set_xlabel("Normalised radius $r/R$")
-    saveaxs[1][4].set_ylim(top = 2e12)
+    saveaxs[1][4].set_ylim(top = p_max)
     saveaxs[1][4].locator_params(axis='y', nbins=5)
     #saveaxs[1][4].set_yticks(yticklocations, yticklabels)
     saveaxs[1][4].set_ylabel(r"$p$ [Pa]")
     #axins = zoomed_inset_axes(saveaxs[1][4], zoom = 2, loc='upper right')
     axins = inset_zoom_axes(saveaxs[1][4], [0.5, 0.5, 0.4, 0.4])
-    #axins.imshow((np.transpose(log_grid)), cmap = 'plasma', norm = col.LogNorm(), aspect = 'auto', origin = 'lower', extent = (-0.5, N-0.5, -0.5, 2e4-0.5))
+    #axins.imshow((np.transpose(log_grid)), cmap = 'plasma', norm = col.LogNorm(), aspect = 'auto', origin = 'lower', extent = (-0.5, N-0.5, -0.5, rho_max-0.5))
     axins.set_xticks([0,100,200,300], [1.0,0.9,0.8,0.7])
     axins.set_xlim(300,0)
     axins.set_ylim(0,1e11)
@@ -349,10 +352,10 @@ def generate_plots():
         #normalise to 1
         averaged_first_derivative_norm = averaged_first_derivative/np.max(np.abs(averaged_first_derivative))
         #averaged_second_derivative /= np.max(np.abs(averaged_second_derivative))
-        saveaxs[2][0].semilogy(np.linspace(0, 2e4, RES), averaged_sample, color = dev_colours[i])
-        saveaxs[2][1].plot(np.linspace(0, 2e4, RES-1), averaged_first_derivative, color = dev_colours[i])
-        saveaxs[2][2].plot(np.linspace(0, 2e4, RES-1), averaged_first_derivative_norm, color = dev_colours[i])
-        #saveaxs[2,2].plot(np.linspace(0, 2e4, RES-2), averaged_second_derivative, color = dev_colours[i])
+        saveaxs[2][0].semilogy(np.linspace(0, rho_max, RES), averaged_sample, color = dev_colours[i])
+        saveaxs[2][1].plot(np.linspace(0, rho_max, RES-1), averaged_first_derivative, color = dev_colours[i])
+        saveaxs[2][2].plot(np.linspace(0, rho_max, RES-1), averaged_first_derivative_norm, color = dev_colours[i])
+        #saveaxs[2,2].plot(np.linspace(0, rho_max, RES-2), averaged_second_derivative, color = dev_colours[i])
         i+=1
         if i == 10:
             n=159
@@ -427,10 +430,10 @@ def generate_plots():
         #normalise to 1
         averaged_first_derivative_norm = averaged_first_derivative/np.max(np.abs(averaged_first_derivative))
         #averaged_second_derivative /= np.max(np.abs(averaged_second_derivative))
-        saveaxs[4][0].semilogy(np.linspace(0, 2e4, RES), averaged_sample, color = dev_colours[i])
-        saveaxs[4][1].plot(np.linspace(0, 2e4, RES-1), averaged_first_derivative, color = dev_colours[i])
-        saveaxs[4][2].plot(np.linspace(0, 2e4, RES-1), averaged_first_derivative_norm, color = dev_colours[i])
-        #saveaxs[2,2].plot(np.linspace(0, 2e4, RES-2), averaged_second_derivative, color = dev_colours[i])
+        saveaxs[4][0].semilogy(np.linspace(0, rho_max, RES), averaged_sample, color = dev_colours[i])
+        saveaxs[4][1].plot(np.linspace(0, rho_max, RES-1), averaged_first_derivative, color = dev_colours[i])
+        saveaxs[4][2].plot(np.linspace(0, rho_max, RES-1), averaged_first_derivative_norm, color = dev_colours[i])
+        #saveaxs[2,2].plot(np.linspace(0, rho_max, RES-2), averaged_second_derivative, color = dev_colours[i])
         i+=1
 
     limit = 5000
@@ -689,7 +692,7 @@ def generate_plots():
     """
     #3d plot
     x = np.arange(N)
-    y = np.linspace(0, 2e4, RES)
+    y = np.linspace(0, rho_max, RES)
     X, Y = np.meshgrid(x, y)
     Z = np.transpose(results['distr grid density'])
     threedeefig, threedeeax = plt.subplots(subplot_kw = dict(projection = '3d'))
