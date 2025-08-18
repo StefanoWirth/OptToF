@@ -14,7 +14,7 @@ rho_max = 2e4
 p_max = 3e12
 
 #IMPORTANT NOTICE: ensure files 'bigrun_neptune.hdf5' and 'bigrun_uranus.hdf5' are in the same directory, as are ClassToF, AlgoToF, FunctionsToF.
-is_neptune = False
+is_neptune = True
 dodifferentjumpcriteria = True
 
 def save_results():
@@ -98,6 +98,7 @@ def generate_results(f):
     RES:                        INT resolution
     distr grid density:         2D ARRAY of shape N (x, first direction) * RES (y, second direction, [0, rho_MAX]) that bins the location of the rho onto a coordinate grid. This results in a probability distribution of sorts.
     distr grid pressure:        2D ARRAY of shape N (x, first direction) * RES (y, second direction, [0, rho_MAX]) that bins the location of the pressures onto a coordinate grid. This results in a probability distribution of sorts.
+    core dens v max jump loc:   2D ARRAY (from list of tuple) containing core density vs location of the highest jump
     """
 
     signal.signal(signal.SIGINT, interrupt_handler)
@@ -115,6 +116,7 @@ def generate_results(f):
     global rho_MAX_failures, J_failures
     global avg_start, avg_respect_start, avg_successful_start, avg_successful_result, avg_change
     global RES, x, y, distr_grid_dens, distr_grid_pressure
+    global core_dens_v_max_jump_loc
     
     N = 2**10    #size of datasets
     n = 0
@@ -152,6 +154,8 @@ def generate_results(f):
     y = np.linspace(0, rho_max, RES)
     distr_grid_dens = np.zeros((N, RES))
     distr_grid_pressure = np.zeros((N, RES))
+
+    core_dens_v_max_jump_loc = []
 
     #main loop
     global timestartcall, timeendcall, darktime
@@ -201,6 +205,8 @@ def generate_results(f):
     results['distr grid density'] = np.divide(distr_grid_dens, nJsexplained)
     results['distr grid pressure'] = np.divide(distr_grid_pressure, nJsexplained)
 
+    results['core dens v max jump loc'] = np.asarray(core_dens_v_max_jump_loc)
+
     print()
     #fileread, dens, avgchange, ToF (calc, MoI, ratios, pressures), distr, jump, jumpcriteria
     print('Time to find files:              ' + time.strftime("%M:%S", time.gmtime((darktime))))
@@ -238,6 +244,8 @@ def analyse_dataset(name, object):
     global avg_start, avg_respect_start, avg_successful_start, avg_successful_result, avg_change
     global RES, x, y, distr_grid_dens, distr_grid_pressure
     
+    global core_dens_v_max_jump_loc
+
     global timestartcall, timeendcall, darktime
     timestartcall = time.perf_counter()
     darktime += timestartcall - timeendcall #time between start of this call and end of last call, i.e., time used by visititems
@@ -338,6 +346,8 @@ def analyse_dataset(name, object):
     isjump = (rolled > jumpcriterion)
     i = 0
     nr_jumps_this_dataset = 0
+    biggest_jump_this_dataset_location = -1
+    biggest_jump_this_dataset_magnitude = 0
     jumptiming[5] += time.perf_counter() - tic
 
     while i < len(rolled): #go through the rolling average
@@ -425,6 +435,12 @@ def analyse_dataset(name, object):
     
         nr_jumps_this_dataset += 1
 
+        #find biggest jump
+
+        if Jsexplained == True and jumpmagnitude > biggest_jump_this_dataset_magnitude:
+            biggest_jump_this_dataset_location = real_jumplocation
+            biggest_jump_this_dataset_magnitude = jumpmagnitude
+
         jumptime4 = time.perf_counter()
         
         # find jump len | cut fat | find location | save results | wasted | initial gen | searching
@@ -435,6 +451,9 @@ def analyse_dataset(name, object):
 
     nr_jumps.append(nr_jumps_this_dataset)
     nr_jumps_Js_explained_view.append(Jsexplained)
+
+    if biggest_jump_this_dataset_location != -1:
+        core_dens_v_max_jump_loc.append((rho[-1], biggest_jump_this_dataset_location, biggest_jump_this_dataset_magnitude))
 
     time6 = time.perf_counter()
 

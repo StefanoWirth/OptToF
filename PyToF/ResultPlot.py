@@ -8,6 +8,7 @@ import matplotlib.cm as cm
 from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 from matplotview import inset_zoom_axes
+from scipy.stats import linregress
 
 """
 IMPORTANT NOTICE:
@@ -52,7 +53,7 @@ def generate_plots():
 
     #PLOT ================================
 
-    fig, axs = plt.subplots(5, 5, layout = 'constrained', num = str(is_neptune))
+    fig, axs = plt.subplots(6, 6, layout = 'constrained', num = str(is_neptune))
 
     if is_neptune == True:
         planetname = 'neptune'
@@ -63,11 +64,11 @@ def generate_plots():
         plottitlestr = ' (Uranus)'
         defaultcolor = '#50b5ad'
 
-    savefig = [[None for i in range(5)] for j in range(5)]
-    saveaxs = [[None for i in range(5)] for j in range(5)]
+    savefig = [[None for i in range(6)] for j in range(6)]
+    saveaxs = [[None for i in range(6)] for j in range(6)]
 
-    for i in range(5):
-        for j in range(5):
+    for i in range(6):
+        for j in range(6):
             savefig[i][j], saveaxs[i][j] = plt.subplots(num = str([i,j]))
 
     dpi = 200
@@ -179,6 +180,34 @@ def generate_plots():
     for rho in results['J failures']:
         plt.plot(rho, alpha = 0.1)
     """
+
+    core_dens_v_max_jump_loc = results['core dens v max jump loc'][results['core dens v max jump loc'][:,1]<700]
+    x = 1-core_dens_v_max_jump_loc[:,1]/1024 #locations rescaled
+    y = core_dens_v_max_jump_loc[:,0]
+    saveaxs[0][4].hist2d(x,y, bins = 100, norm = 'log')
+    linregress_result = linregress(x, y)
+    print("Slope:")
+    print(linregress_result.slope)
+    print("R-value:")
+    print(linregress_result.rvalue)
+    print("P-value:")
+    print(linregress_result.pvalue)
+    print("Std-err:")
+    print(linregress_result.stderr)
+    xseq = np.linspace(0.3,0.9,num=100)
+    #saveaxs[0][4].plot(xseq, a+b*xseq, color='k')
+    #saveaxs[0][4].set_xticks(xticklocations, xticklabels)
+    saveaxs[0][4].set_xlabel("Location of Discontinuity")
+    saveaxs[0][4].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
+
+    savefig[0][4].savefig('plots/' + planetname + '/04coredensvmaxjumploc' + '_' + planetname + '.png', dpi=2*dpi)
+
+    saveaxs[0][5].scatter(x,y, s=0.05)
+    saveaxs[0][5].plot(xseq, linregress_result.intercept+linregress_result.slope*xseq, color='k')
+    saveaxs[0][5].set_xlabel("Location of Discontinuity")
+    saveaxs[0][5].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
+    savefig[0][5].savefig('plots/' + planetname + '/05coredensvmaxjumploc' + '_' + planetname + '.png', dpi=2*dpi)
+
 
     #DISTR & CONTOUR
 
