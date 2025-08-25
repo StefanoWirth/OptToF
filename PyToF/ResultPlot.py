@@ -181,7 +181,9 @@ def generate_plots():
         plt.plot(rho, alpha = 0.1)
     """
 
-    core_dens_v_max_jump_loc = results['core dens v max jump loc'][results['core dens v max jump loc'][:,1]<700]
+    core_dens_v_max_jump_loc = results['core dens v max jump loc']
+    core_dens_v_max_jump_loc = core_dens_v_max_jump_loc[core_dens_v_max_jump_loc[:,1]<450]
+    core_dens_v_max_jump_loc = core_dens_v_max_jump_loc[core_dens_v_max_jump_loc[:,1]>280]
     x = 1-core_dens_v_max_jump_loc[:,1]/1024 #locations rescaled
     y = core_dens_v_max_jump_loc[:,0]
     saveaxs[0][4].hist2d(x,y, bins = 100, norm = 'log')
@@ -194,20 +196,45 @@ def generate_plots():
     print(linregress_result.pvalue)
     print("Std-err:")
     print(linregress_result.stderr)
-    xseq = np.linspace(0.3,0.9,num=100)
+    xseq = np.linspace(0.55,0.75,num=100)
     #saveaxs[0][4].plot(xseq, a+b*xseq, color='k')
     #saveaxs[0][4].set_xticks(xticklocations, xticklabels)
     saveaxs[0][4].set_xlabel("Location of Discontinuity")
     saveaxs[0][4].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
 
-    savefig[0][4].savefig('plots/' + planetname + '/04coredensvmaxjumploc' + '_' + planetname + '.png', dpi=2*dpi)
+    savefig[0][4].savefig('plots/' + planetname + '/04coredensvmaxjumploc' + '_' + planetname + '.png', dpi=dpi)
 
     saveaxs[0][5].scatter(x,y, s=0.05)
     saveaxs[0][5].plot(xseq, linregress_result.intercept+linregress_result.slope*xseq, color='k')
     saveaxs[0][5].set_xlabel("Location of Discontinuity")
     saveaxs[0][5].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
-    savefig[0][5].savefig('plots/' + planetname + '/05coredensvmaxjumploc' + '_' + planetname + '.png', dpi=2*dpi)
+    savefig[0][5].savefig('plots/' + planetname + '/05coredensvmaxjumploc' + '_' + planetname + '.png', dpi=dpi)
 
+    core_dens_v_jump_loc = results['core dens v jump loc']
+    core_dens_v_jump_loc = core_dens_v_jump_loc[core_dens_v_jump_loc[:,1]<450]
+    core_dens_v_jump_loc = core_dens_v_jump_loc[core_dens_v_jump_loc[:,1]>280]
+    x = 1-core_dens_v_jump_loc[:,1]/1024 #locations rescaled
+    y = core_dens_v_jump_loc[:,0]
+    w = core_dens_v_jump_loc[:,2] #weights
+    saveaxs[1][5].hist2d(x,y, bins = 100, weights = w, norm = 'log')
+    saveaxs[1][5].set_xlabel("Location of Discontinuity")
+    saveaxs[1][5].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
+    linregress_result = linregress(x, y)
+    print("Slope:")
+    print(linregress_result.slope)
+    print("R-value:")
+    print(linregress_result.rvalue)
+    print("P-value:")
+    print(linregress_result.pvalue)
+    print("Std-err:")
+    print(linregress_result.stderr)
+    savefig[1][5].savefig('plots/' + planetname + '/15coredensvjumploc' + '_' + planetname + '.png', dpi=dpi)
+
+    saveaxs[2][5].scatter(x,y, s=0.05)
+    saveaxs[2][5].plot(xseq, linregress_result.intercept+linregress_result.slope*xseq, color='k')
+    saveaxs[2][5].set_xlabel("Location of Discontinuity")
+    saveaxs[2][5].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
+    savefig[2][5].savefig('plots/' + planetname + '/25coredensvjumploc' + '_' + planetname + '.png', dpi=dpi)
 
     #DISTR & CONTOUR
 

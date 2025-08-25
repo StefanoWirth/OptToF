@@ -7,20 +7,20 @@ from ClassToF import ToF
 import AlgoToF
 from FunctionsToF import get_NMoI, _pressurize
 
-N_uranus = 1277081
-N_neptune = 1341762
+N_uranus = 500000
+N_neptune = 500000
 
 rho_max = 2e4
 p_max = 3e12
 
 #IMPORTANT NOTICE: ensure files 'bigrun_neptune.hdf5' and 'bigrun_uranus.hdf5' are in the same directory, as are ClassToF, AlgoToF, FunctionsToF.
-is_neptune = True
+is_neptune = False
 dodifferentjumpcriteria = True
 
 def save_results():
     tic = time.perf_counter()
     global jumpcriterion, jumpcriteria
-    jumpcriterion = 100
+    jumpcriterion = 500
     #jumpcriteria = [50,75,100,150,250,500,1000]
     jumpcriteria = np.arange(50, 1001, 50)
 
@@ -98,6 +98,7 @@ def generate_results(f):
     RES:                        INT resolution
     distr grid density:         2D ARRAY of shape N (x, first direction) * RES (y, second direction, [0, rho_MAX]) that bins the location of the rho onto a coordinate grid. This results in a probability distribution of sorts.
     distr grid pressure:        2D ARRAY of shape N (x, first direction) * RES (y, second direction, [0, rho_MAX]) that bins the location of the pressures onto a coordinate grid. This results in a probability distribution of sorts.
+    core dens v jump loc:       2D ARRAY (from list of tuple) containing core density vs location of the jumps
     core dens v max jump loc:   2D ARRAY (from list of tuple) containing core density vs location of the highest jump
     """
 
@@ -116,6 +117,7 @@ def generate_results(f):
     global rho_MAX_failures, J_failures
     global avg_start, avg_respect_start, avg_successful_start, avg_successful_result, avg_change
     global RES, x, y, distr_grid_dens, distr_grid_pressure
+    global core_dens_v_jump_loc
     global core_dens_v_max_jump_loc
     
     N = 2**10    #size of datasets
@@ -155,6 +157,7 @@ def generate_results(f):
     distr_grid_dens = np.zeros((N, RES))
     distr_grid_pressure = np.zeros((N, RES))
 
+    core_dens_v_jump_loc = []
     core_dens_v_max_jump_loc = []
 
     #main loop
@@ -205,6 +208,7 @@ def generate_results(f):
     results['distr grid density'] = np.divide(distr_grid_dens, nJsexplained)
     results['distr grid pressure'] = np.divide(distr_grid_pressure, nJsexplained)
 
+    results['core dens v jump loc'] = np.asarray(core_dens_v_jump_loc)
     results['core dens v max jump loc'] = np.asarray(core_dens_v_max_jump_loc)
 
     print()
@@ -245,6 +249,7 @@ def analyse_dataset(name, object):
     global RES, x, y, distr_grid_dens, distr_grid_pressure
     
     global core_dens_v_max_jump_loc
+    global core_dens_v_jump_loc
 
     global timestartcall, timeendcall, darktime
     timestartcall = time.perf_counter()
@@ -435,6 +440,10 @@ def analyse_dataset(name, object):
     
         nr_jumps_this_dataset += 1
 
+        if Jsexplained == True:
+            core_dens_v_jump_loc.append((rho[-1], real_jumplocation, jumpmagnitude))
+
+
         #find biggest jump
 
         if Jsexplained == True and jumpmagnitude > biggest_jump_this_dataset_magnitude:
@@ -504,7 +513,7 @@ def analyse_dataset(name, object):
     if n % 100 == 0:
         duration = time.perf_counter() - starttime
         rate = (n/duration)
-        esttimerem = (1341762 - n)/rate
+        esttimerem = (N_uranus - n)/rate
         days = int(esttimerem // (60*60*24))
         esttimerem = esttimerem%(60*60*24)
         print('  Nr: ' + str(n) +'. Time since start: ' + time.strftime("%H:%M:%S", time.gmtime(duration)) + '. Rate: ' + '{:.0f}'.format(rate) + ' it/s. Estimated time remaining: ' + str(days) + "d "+ time.strftime("%H:%M:%S", time.gmtime(esttimerem)) + '  ' , end='\r') 
