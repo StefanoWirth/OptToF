@@ -1,7 +1,7 @@
 from ClassToF import ToF
 from ClassOpt import OptToF
-from planet_data.Uranus import Uranus
-from planet_data.Neptune import Neptune
+from Uranus import Uranus
+from Neptune import Neptune
 
 """
 This process runs at a cost of 45 KB per minute per core (Intel Core i7-8650U @ 2.40GHz)
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     kwargs['ToF convergence tolerance'] = 1e-6
     kwargs['figures'] = True
     kwargs['kitty'] = 0
-    kwargs['write to file'] = True
+    kwargs['write to file'] = False
     kwargs['continuous running'] = False
     kwargs['cores'] = 8
     kwargs['file location'] = 'newrun_uranus.hdf5' #TODO: MODIFY
