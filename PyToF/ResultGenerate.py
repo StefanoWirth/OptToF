@@ -3,6 +3,7 @@ import h5py
 import time
 import pickle
 import signal
+import scipy
 from ClassToF import ToF
 import AlgoToF
 from FunctionsToF import get_NMoI, _pressurize
@@ -14,13 +15,13 @@ rho_max = 2e4
 p_max = 3e12
 
 #IMPORTANT NOTICE: ensure files 'bigrun_neptune.hdf5' and 'bigrun_uranus.hdf5' are in the same directory, as are ClassToF, AlgoToF, FunctionsToF.
-is_neptune = False
+is_neptune = True
 dodifferentjumpcriteria = True
 
 def save_results():
     tic = time.perf_counter()
     global jumpcriterion, jumpcriteria
-    jumpcriterion = 500
+    jumpcriterion = 100
     #jumpcriteria = [50,75,100,150,250,500,1000]
     jumpcriteria = np.arange(50, 1001, 50)
 
@@ -355,6 +356,8 @@ def analyse_dataset(name, object):
     biggest_jump_this_dataset_magnitude = 0
     jumptiming[5] += time.perf_counter() - tic
 
+    firstjump = True
+
     while i < len(rolled): #go through the rolling average
 
         jumptimeminus1 = time.perf_counter()
@@ -440,8 +443,16 @@ def analyse_dataset(name, object):
     
         nr_jumps_this_dataset += 1
 
-        if Jsexplained == True:
-            core_dens_v_jump_loc.append((rho[-1], real_jumplocation, jumpmagnitude))
+        if Jsexplained == True and firstjump == True:
+            #mass location
+            if is_neptune == True:
+                li = np.linspace(1, 1/1024, 1024)*24766*1e3
+                relative_mass = (-4*np.pi*scipy.integrate.simpson(rho[int(real_jumplocation):]*li[int(real_jumplocation):]**2, li[int(real_jumplocation):]))/1.02409e+26
+            else:
+                li = np.linspace(1, 1/1024, 1024)*25559*1e3
+                relative_mass = (-4*np.pi*scipy.integrate.simpson(rho[int(real_jumplocation):]*li[int(real_jumplocation):]**2, li[int(real_jumplocation):]))/8.68099e+25
+            core_dens_v_jump_loc.append((rho[-1], real_jumplocation, jumpmagnitude, relative_mass))
+            firstjump == False
 
 
         #find biggest jump

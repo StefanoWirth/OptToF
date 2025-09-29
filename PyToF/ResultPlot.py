@@ -30,7 +30,7 @@ RES = 4*N
 rho_max = 2e4
 p_max = 3e12
 
-is_neptune = False
+is_neptune = True
 
 def generate_plots():
     tic = time.perf_counter()
@@ -57,11 +57,11 @@ def generate_plots():
 
     if is_neptune == True:
         planetname = 'neptune'
-        plottitlestr = ' (Neptune)'
+        plottitlestr = 'Neptune'
         defaultcolor = '#3b55e1'
     else:
         planetname = 'uranus'
-        plottitlestr = ' (Uranus)'
+        plottitlestr = 'Uranus'
         defaultcolor = '#50b5ad'
 
     savefig = [[None for i in range(6)] for j in range(6)]
@@ -85,6 +85,7 @@ def generate_plots():
     #JUMPS
 
     #saveaxs[0][0].set_title('Average jump' + plottitlestr)
+    saveaxs[0][0].set_title(plottitlestr)
     saveaxs[0][0].bar(range(1023), results['raw jumps expl'], width=1, color = defaultcolor)
     saveaxs[0][0].invert_xaxis()
     saveaxs[0][0].set_xticks(xticklocations, xticklabels)
@@ -98,6 +99,7 @@ def generate_plots():
     saveaxs[0,1].plot(np.convolve(results['raw jumps expl'], np.ones(5)/5, mode = 'same'))
     """
     #saveaxs[0][1].set_title('Average jump intensity' + plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
+    saveaxs[0][1].set_title(plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
     proc_jump_j_expl = results['processed jumps'][results['jumps Js explained view']]
     jumpindex = proc_jump_j_expl[:, 0]
     jumpwidth = proc_jump_j_expl[:, 1]
@@ -107,11 +109,12 @@ def generate_plots():
     saveaxs[0][1].invert_xaxis()
     saveaxs[0][1].set_xticks(xticklocations, xticklabels)
     saveaxs[0][1].set_xlabel("Normalised radius $r/R$")
-    saveaxs[0][1].set_ylabel(r"$\overline{\frac{\Delta\rho}{\Delta l}}$  [1/$\Delta l$ kg m$^{-3}$]")
+    saveaxs[0][1].set_ylabel(r"$\overline{\frac{\Delta\rho}{\Delta \ell}}$  [$\Delta \ell^{-1}$ kg m$^{-3}$]")
 
     savefig[0][1].savefig('plots/' + planetname + '/01procjumps1' + '_' + planetname + '.png', dpi=dpi)
 
     #saveaxs[0][2].set_title('Jump widths, arbitrary units' + plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
+    saveaxs[0][2].set_title(plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
     saveaxs[0][2].hist(jumpindex, bins = bincount, range = (0,N-1), weights = jumpwidth, color = defaultcolor)
     saveaxs[0][2].invert_xaxis()
     saveaxs[0][2].set_xticks(xticklocations, xticklabels)
@@ -121,6 +124,7 @@ def generate_plots():
     savefig[0][2].savefig('plots/' + planetname + '/02procjumps2' + '_' + planetname + '.png', dpi=dpi)
 
     #saveaxs[0][3].set_title('Average jump magnitude' + plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
+    saveaxs[0][3].set_title(plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
     saveaxs[0][3].hist(jumpindex, bins = bincount, range = (0,N-1), weights = jumpheight, color = defaultcolor)
     saveaxs[0][3].invert_xaxis()
     saveaxs[0][3].set_xticks(xticklocations, xticklabels)
@@ -129,7 +133,8 @@ def generate_plots():
 
     savefig[0][3].savefig('plots/' + planetname + '/03procjumps3' + '_' + planetname + '.png', dpi=dpi)
 
-    #saveaxs[1][2].set_title('Number of jumps in profile' + plottitlestr)
+    #saveaxs[1][2].set_title('Number of discontinuities in profile' + plottitlestr)
+    saveaxs[1][2].set_title(plottitlestr)
     nr_jumps_J_expl = results['nr jumps'][results['nr jumps Js explained view']]
     max_nr = np.max(nr_jumps_J_expl)
     nrjumpsbinvalues, nrjumpsbinedges, _ = saveaxs[1][2].hist(nr_jumps_J_expl, bins = max_nr + 1, range = (-0.5, max_nr+0.5), color = defaultcolor, density = True)
@@ -139,7 +144,8 @@ def generate_plots():
     saveaxs[1][2].vlines(np.percentile(nr_jumps_J_expl, 95), ymin = 0, ymax = 1, linestyle ='--', color = 'tab:gray', transform = transform, label = '95th percentile')
     saveaxs[1][2].vlines(np.mean(nr_jumps_J_expl), ymin = 0, ymax = 1, linestyle ='-', color = 'tab:red', transform = transform, label = 'Average')
     saveaxs[1][2].xaxis.set_major_locator(MaxNLocator(integer=True))
-    saveaxs[1][2].set_xlabel("Number of jumps")
+    saveaxs[1][2].set_xlim(right=32)
+    saveaxs[1][2].set_xlabel("Number of discontinuities")
     saveaxs[1][2].set_ylabel("Relative frequency")
     saveaxs[1][2].get_yaxis().set_ticks([])
     saveaxs[1][2].legend()
@@ -147,7 +153,8 @@ def generate_plots():
 
     savefig[1][2].savefig('plots/' + planetname + '/12njumpexpl' + '_' + planetname + '.png', dpi=dpi)
     
-    #saveaxs[1][3].set_title('Number of jumps in profile per criterion'+plottitlestr+'\nAverage and 95th percentile')
+    #saveaxs[1][3].set_title('Number of discontinuities in profile per criterion'+plottitlestr+'\nAverage and 95th percentile')
+    saveaxs[1][3].set_title(plottitlestr)
     jumps_per_criteria = results['nr jumps per criterion']
     jumpcriteria # x           
     avg_jumps_per_criteria = [] # y1
@@ -165,8 +172,10 @@ def generate_plots():
     xticks = [0,4,9,14,19]
     saveaxs[1][3].set_xticks(xticks)
     saveaxs[1][3].set_xticklabels(jumpcriteria[xticks])
-    saveaxs[1][3].set_xlabel(r"Jumpcriteria $\rho/\Delta l$ [1/$\Delta l$ kg m$^{-3}$]")
-    saveaxs[1][3].set_ylabel("Number of jumps")
+    saveaxs[1][3].set_xlabel(r"Jumpcriteria $c_J$ [$\Delta \ell^{-1}$ kg m$^{-3}$]")
+    saveaxs[1][3].set_ylim(top=22)
+    saveaxs[1][3].set_ylabel("Number of discontinuities")
+    saveaxs[1][3].yaxis.set_major_locator(MaxNLocator(integer=True))
 
     #for i in range(len(jumpcriteria)):
         #print(str(jumpcriteria[i]) + '&' + str(round(avg_jumps_per_criteria[i])) + '&' + str(int(max_jumps_per_criteria[i])) + '\\\\')
@@ -180,7 +189,7 @@ def generate_plots():
     for rho in results['J failures']:
         plt.plot(rho, alpha = 0.1)
     """
-
+    """
     core_dens_v_max_jump_loc = results['core dens v max jump loc']
     core_dens_v_max_jump_loc = core_dens_v_max_jump_loc[core_dens_v_max_jump_loc[:,1]<450]
     core_dens_v_max_jump_loc = core_dens_v_max_jump_loc[core_dens_v_max_jump_loc[:,1]>280]
@@ -188,6 +197,7 @@ def generate_plots():
     y = core_dens_v_max_jump_loc[:,0]
     saveaxs[0][4].hist2d(x,y, bins = 100, norm = 'log')
     linregress_result = linregress(x, y)
+    
     print("Slope:")
     print(linregress_result.slope)
     print("R-value:")
@@ -196,6 +206,7 @@ def generate_plots():
     print(linregress_result.pvalue)
     print("Std-err:")
     print(linregress_result.stderr)
+    
     xseq = np.linspace(0.55,0.75,num=100)
     #saveaxs[0][4].plot(xseq, a+b*xseq, color='k')
     #saveaxs[0][4].set_xticks(xticklocations, xticklabels)
@@ -220,6 +231,7 @@ def generate_plots():
     saveaxs[1][5].set_xlabel("Location of Discontinuity")
     saveaxs[1][5].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
     linregress_result = linregress(x, y)
+    
     print("Slope:")
     print(linregress_result.slope)
     print("R-value:")
@@ -228,6 +240,7 @@ def generate_plots():
     print(linregress_result.pvalue)
     print("Std-err:")
     print(linregress_result.stderr)
+    
     savefig[1][5].savefig('plots/' + planetname + '/15coredensvjumploc' + '_' + planetname + '.png', dpi=dpi)
 
     saveaxs[2][5].scatter(x,y, s=0.05)
@@ -236,9 +249,43 @@ def generate_plots():
     saveaxs[2][5].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
     savefig[2][5].savefig('plots/' + planetname + '/25coredensvjumploc' + '_' + planetname + '.png', dpi=dpi)
 
+
+
+    #in mass
+    core_dens_v_jump_loc = results['core dens v jump loc']
+    core_dens_v_jump_loc = core_dens_v_jump_loc[core_dens_v_jump_loc[:,3]>0.4]
+    x = core_dens_v_jump_loc[:,3]
+    y = core_dens_v_jump_loc[:,0]
+    saveaxs[3][5].hist2d(x,y, bins = 100, norm = 'log')
+    saveaxs[3][5].set_xlabel("Enclosed Mass Fraction at First Discontinuity")
+    saveaxs[3][5].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
+    linregress_result = linregress(x, y)
+    
+    print("Slope:")
+    print(linregress_result.slope)
+    print("R-value:")
+    print(linregress_result.rvalue)
+    print("P-value:")
+    print(linregress_result.pvalue)
+    print("Std-err:")
+    print(linregress_result.stderr)
+    print("Average & Median of Mass Location:")
+    print(np.average(x))
+    print(np.median(x))
+    
+    savefig[3][5].savefig('plots/' + planetname + '/35coredensvjumplocmass' + '_' + planetname + '.png', dpi=dpi)
+    xseq = np.linspace(0.4,1,num=100)
+
+    saveaxs[4][5].scatter(x,y, s=0.05)
+    saveaxs[4][5].plot(xseq, linregress_result.intercept+linregress_result.slope*xseq, color='k')
+    saveaxs[4][5].set_xlabel("Enclosed Mass Fraction at First Discontinuity")
+    saveaxs[4][5].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
+    savefig[4][5].savefig('plots/' + planetname + '/45coredensvjumploc' + '_' + planetname + '.png', dpi=dpi)
+    """
     #DISTR & CONTOUR
 
     #saveaxs[1][0].set_title('Distribution of density profiles, log scale' + plottitlestr)
+    saveaxs[1][0].set_title(plottitlestr)
     log_grid = results['distr grid density']
     logdistr = saveaxs[1][0].imshow((np.transpose(log_grid)), cmap = 'plasma', norm = col.LogNorm(), aspect = 'auto', origin = 'lower', extent = (-0.5, N-0.5, -0.5, rho_max-0.5))
     cbar = savefig[1][0].colorbar(logdistr, ax=saveaxs[1][0])
@@ -297,6 +344,7 @@ def generate_plots():
 
 
     #saveaxs[1][1].set_title('Distribution of density profiles, contour' + plottitlestr)
+    saveaxs[1][1].set_title(plottitlestr)
     percentile_grid = np.zeros_like(results['distr grid density'])
     contourintervals = [0.95, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0]
     cumulative_distr = np.cumsum(results['distr grid density'], axis=1)
@@ -363,10 +411,50 @@ def generate_plots():
 
 
     #saveaxs[1][4].set_title('Distribution of pressure profiles, log scale' + plottitlestr)
+    saveaxs[1][4].set_title(plottitlestr)
     log_grid = results['distr grid pressure']
     logdistr = saveaxs[1][4].imshow((np.transpose(log_grid)), cmap = 'plasma', norm = col.LogNorm(), aspect = 'auto', origin = 'lower', extent = (-0.5, N-0.5, -0.5, p_max-0.5))
     cbar = savefig[1][4].colorbar(logdistr, ax=saveaxs[1][4])
     cbar.set_label(label = 'Relative frequency', labelpad = 14)
+
+    #literature values
+    x = np.linspace(1,0,1024)
+    if is_neptune:
+        nettelmanNone = 10**9*np.flip(np.loadtxt(r'planet_data/literature_values/Neptune/table_N1.txt')[:,1])
+        nettelmanNonex = np.flip(np.loadtxt(r'planet_data/literature_values/Neptune/table_N1.txt')[:,2])
+        nettelmanNonex /= nettelmanNonex[-1]
+        nettelmanNtwo = 10**9*np.flip(np.loadtxt(r'planet_data/literature_values/Neptune/table_N2b.txt')[:,1])
+        nettelmanNtwox = np.flip(np.loadtxt(r'planet_data/literature_values/Neptune/table_N2b.txt')[:,2])
+        nettelmanNtwox /= nettelmanNtwox[-1]
+        saveaxs[1][4].plot(np.interp(x, nettelmanNonex, nettelmanNone), linestyle ='-', linewidth = 1, color = 'xkcd:marigold')
+        saveaxs[1][4].plot(np.interp(x, nettelmanNtwox, nettelmanNtwo), linestyle ='--', linewidth = 1, color = 'xkcd:marigold')
+
+    else: 
+        nettelmanUone = 10**9*np.flip(np.loadtxt(r'planet_data/literature_values/Uranus/table_U1.txt')[:,1])
+        nettelmanUonex = np.flip(np.loadtxt(r'planet_data/literature_values/Uranus/table_U1.txt')[:,2])
+        nettelmanUonex /= nettelmanUonex[-1]
+        nettelmanUtwo = 10**9*np.flip(np.loadtxt(r'planet_data/literature_values/Uranus/table_U2.txt')[:,1])
+        nettelmanUtwox = np.flip(np.loadtxt(r'planet_data/literature_values/Uranus/table_U2.txt')[:,2])
+        nettelmanUtwox /= nettelmanUtwox[-1]
+        saveaxs[1][4].plot(np.interp(x, nettelmanUonex, nettelmanUone), linestyle ='-', linewidth = 1, color = 'xkcd:marigold')
+        saveaxs[1][4].plot(np.interp(x, nettelmanUtwox, nettelmanUtwo), linestyle ='--', linewidth = 1, color = 'xkcd:marigold')
+        helled = np.flip(np.loadtxt(r'planet_data/literature_values/Uranus/density_ravit_1.txt')[:,2])
+        helledx = np.flip(np.loadtxt(r'planet_data/literature_values/Uranus/density_ravit_1.txt')[:,0])
+        saveaxs[1][4].plot(np.interp(x, helledx, helled), linestyle ='-', linewidth = 1, color = 'xkcd:deep red')
+        vazantwo = (np.loadtxt(r'planet_data/literature_values/Uranus/vazan_2.txt')[:,1])
+        vazantwox = (np.loadtxt(r'planet_data/literature_values/Uranus/vazan_2.txt')[:,0])
+        vazanthree = (np.loadtxt(r'planet_data/literature_values/Uranus/vazan_3.txt')[:,1])
+        vazanthreex = (np.loadtxt(r'planet_data/literature_values/Uranus/vazan_3.txt')[:,0])
+        saveaxs[1][4].plot(np.interp(x, vazantwox, vazantwo), linestyle ='-', linewidth = 1, color = 'xkcd:sky blue')
+        saveaxs[1][4].plot(np.interp(x, vazanthreex, vazanthree), linestyle ='--', linewidth = 1, color = 'xkcd:sky blue')
+
+
+
+
+
+
+
+
     saveaxs[1][4].invert_xaxis()
     saveaxs[1][4].set_xticks(xticklocations, xticklabels)
     saveaxs[1][4].set_xlabel("Normalised radius $r/R$")
@@ -541,7 +629,8 @@ def generate_plots():
 
     #thiccness
 
-    #saveaxs[2][3].set_title('Size of confidence intervals' + plottitlestr)
+    saveaxs[2][3].set_title('Size of confidence intervals' + plottitlestr)
+    saveaxs[2][3].set_title(plottitlestr)
     onesigmathiccness = uppersd - lowersd
     twosigmathiccness = twouppersd - twolowersd
     #saveaxs[2,3].plot(onesigmathiccness, color = 'black', linewidth = 1)
@@ -587,6 +676,7 @@ def generate_plots():
 
 
     #saveaxs[3][1].set_title('Core Density' + plottitlestr)
+    saveaxs[3][1].set_title(plottitlestr)
     maxdensbinvalues, maxdensbinedges, _  = saveaxs[3][1].hist(results['max dens'][results['dens Js explained view']], bins = 400, color = defaultcolor, density = True)
     maxdensbinlocations = (maxdensbinedges[:-1]+maxdensbinedges[1:])/2
     
@@ -648,6 +738,7 @@ def generate_plots():
     savefig[3][1].savefig('plots/' + planetname + '/31maxdens' + '_' + planetname + '.png', dpi=dpi)
 
     #saveaxs[3][2].set_title('Average of profiles' + plottitlestr)
+    saveaxs[3][2].set_title(plottitlestr)
     saveaxs[3][2].plot(results['avg start'], linestyle ='--', color = 'tab:gray', label = 'Generated')
     saveaxs[3][2].plot(results['avg respected start'], color = 'tab:purple', label = r'$\rho_{\text{max}}$ respected')
     saveaxs[3][2].plot(results['avg successful start'], color = 'tab:red', label = 'Successful start')
@@ -664,6 +755,7 @@ def generate_plots():
 
 
     #saveaxs[3][3].set_title('Average change' + plottitlestr)
+    saveaxs[3][3].set_title(plottitlestr)
     posneg = ['tab:blue' if y >= 0 else 'tab:red' for y in results['avg change']]
     saveaxs[3][3].bar(range(1024), results['avg change'], width=1, bottom = 0, color = posneg)
     saveaxs[3][3].axhline(0, linestyle ='--', color = 'tab:gray')
@@ -677,6 +769,7 @@ def generate_plots():
 
     #NMoI
     #saveaxs[4][3].set_title('Normalised Moments of Inertia' + plottitlestr)
+    saveaxs[4][3].set_title(plottitlestr)
     maxnmoibinvalues, maxnmoibinedges, _  = saveaxs[4][3].hist(results['moments of inertia'], bins = 200, color = defaultcolor, density = True)
     maxnmoibinlocations = (maxnmoibinedges[:-1]+maxnmoibinedges[1:])/2
     
@@ -699,7 +792,7 @@ def generate_plots():
 
     saveaxs[4][3].set_ylabel('Relative frequency')
     #saveaxs[4][3].set_xticks(yticklocations, yticklabels)
-    saveaxs[4][3].set_xlabel(r"NMoI [unitless]")
+    saveaxs[4][3].set_xlabel(r"Normalised Moment of Inertia $\lambda$ [unitless]")
 
     saveaxs[4][3].legend()
 
@@ -713,7 +806,10 @@ def generate_plots():
 
     #FR
     #saveaxs[4][4].set_title('Flattening Ratios' + plottitlestr)
-    maxfrbinvalues, maxfrbinedges, _  = saveaxs[4][4].hist(results['flattening ratios'], bins = 200, color = defaultcolor, density = True)
+    saveaxs[4][4].set_title(plottitlestr)
+    if is_neptune: offset = 1.00629
+    else: offset = 1.00680
+    maxfrbinvalues, maxfrbinedges, _  = saveaxs[4][4].hist((results['flattening ratios']-offset)*10**6, bins = 200, color = defaultcolor, density = True)
     maxfrbinlocations = (maxfrbinedges[:-1]+maxfrbinedges[1:])/2
     
     weighted_indices = maxfrbinvalues*np.arange(len(maxfrbinvalues))
@@ -727,14 +823,15 @@ def generate_plots():
     medianvalue = maxfrbinvalues[medianindex]
     """
     saveaxs[4][4].vlines(avglocation, ymin = 0, ymax = avgvalue, linestyle ='-', color = 'tab:red', label = 'Average')
-    saveaxs[4][4].text(avglocation, avgvalue, '{:.8f}'.format(avglocation), ha='right', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small', backgroundcolor = 'white')
+    saveaxs[4][4].text(avglocation, avgvalue, '{:.8f}'.format(avglocation/10**6+offset), ha='right', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small', backgroundcolor = 'white')
 
     #saveaxs[4][4].vlines(medianlocation, ymin = 0, ymax = medianvalue, linestyle ='-', color = 'black', label = 'Median')
     #saveaxs[4][4].text(medianlocation, medianvalue, '{:.2f}'.format(medianlocation), ha='left', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small')
 
     saveaxs[4][4].set_ylabel('Relative frequency')
     #saveaxs[4][4].set_xticks(yticklocations, yticklabels)
-    saveaxs[4][4].set_xlabel(r"$R_{mean}/R_{eq}$ [unitless]")
+    saveaxs[4][4].ticklabel_format(useOffset=False)
+    saveaxs[4][4].set_xlabel(r"$r_f$ [unitless]")
 
     saveaxs[4][4].legend()
 
