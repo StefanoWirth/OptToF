@@ -86,7 +86,8 @@ def generate_plots():
 
     #saveaxs[0][0].set_title('Average jump' + plottitlestr)
     saveaxs[0][0].set_title(plottitlestr)
-    saveaxs[0][0].bar(range(1023), results['raw jumps expl'], width=1, color = defaultcolor)
+    #saveaxs[0][0].bar(range(1023), results['raw jumps expl'], width=1, color = defaultcolor)
+    saveaxs[0][0].plot(range(1023), results['raw jumps expl'], color = defaultcolor)
     saveaxs[0][0].invert_xaxis()
     saveaxs[0][0].set_xticks(xticklocations, xticklabels)
     saveaxs[0][0].set_xlabel("Normalised radius $r/R$")
@@ -105,27 +106,35 @@ def generate_plots():
     jumpwidth = proc_jump_j_expl[:, 1]
     jumpheight = proc_jump_j_expl[:, 2]/results['nJ']
     jumpweight = jumpheight/jumpwidth
-    saveaxs[0][1].hist(jumpindex, bins = bincount, range = (0,N-1), weights = jumpweight, color = defaultcolor)
+    #saveaxs[0][1].hist(jumpindex, bins = bincount, range = (0,N-1), weights = jumpweight, color = defaultcolor)
+    y, x = np.histogram(jumpindex, bins = bincount, range = (0,N-1), weights = jumpweight)
+    saveaxs[0][1].plot(x[0:1023], y[0:1023], color = defaultcolor)
     saveaxs[0][1].invert_xaxis()
     saveaxs[0][1].set_xticks(xticklocations, xticklabels)
+    saveaxs[0][1].set_xlim(left = 1023, right = 0)
+    saveaxs[0][1].set_ylim(bottom = -0.05)
     saveaxs[0][1].set_xlabel("Normalised radius $r/R$")
-    saveaxs[0][1].set_ylabel(r"$\overline{\frac{\Delta\rho}{\Delta \ell}}$  [$\Delta \ell^{-1}$ kg m$^{-3}$]")
+    saveaxs[0][1].set_ylabel(r"$\overline{\Delta\rho / \Delta r}$  [$\Delta \ell^{-1}$ kg m$^{-3}$]")
 
     savefig[0][1].savefig('plots/' + planetname + '/01procjumps1' + '_' + planetname + '.png', dpi=dpi)
 
     #saveaxs[0][2].set_title('Jump widths, arbitrary units' + plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
     saveaxs[0][2].set_title(plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
-    saveaxs[0][2].hist(jumpindex, bins = bincount, range = (0,N-1), weights = jumpwidth, color = defaultcolor)
+    y, x = np.histogram(jumpindex, bins = bincount, range = (0,N-1), weights = jumpwidth/results['nJ'])
+    saveaxs[0][2].plot(x[0:1023], y[0:1023], color = defaultcolor)
     saveaxs[0][2].invert_xaxis()
     saveaxs[0][2].set_xticks(xticklocations, xticklabels)
     saveaxs[0][2].set_xlabel("Normalised radius $r/R$")
-    saveaxs[0][2].get_yaxis().set_ticks([])
+    #saveaxs[0][2].get_yaxis().set_ticks([])
+    saveaxs[0][2].set_ylabel(r"$\overline{\Delta r}$ [$\Delta \ell$]")
+
 
     savefig[0][2].savefig('plots/' + planetname + '/02procjumps2' + '_' + planetname + '.png', dpi=dpi)
 
     #saveaxs[0][3].set_title('Average jump magnitude' + plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
     saveaxs[0][3].set_title(plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
-    saveaxs[0][3].hist(jumpindex, bins = bincount, range = (0,N-1), weights = jumpheight, color = defaultcolor)
+    y, x = np.histogram(jumpindex, bins = bincount, range = (0,N-1), weights = jumpheight)
+    saveaxs[0][3].plot(x[0:1023], y[0:1023], color = defaultcolor)
     saveaxs[0][3].invert_xaxis()
     saveaxs[0][3].set_xticks(xticklocations, xticklabels)
     saveaxs[0][3].set_xlabel("Normalised radius $r/R$")
@@ -148,7 +157,7 @@ def generate_plots():
     saveaxs[1][2].set_xlabel("Number of discontinuities")
     saveaxs[1][2].set_ylabel("Relative frequency")
     saveaxs[1][2].get_yaxis().set_ticks([])
-    saveaxs[1][2].legend()
+    if is_neptune == False: saveaxs[1][2].legend()
     #savefig[1][2].subplots_adjust(left = 0.15)
 
     savefig[1][2].savefig('plots/' + planetname + '/12njumpexpl' + '_' + planetname + '.png', dpi=dpi)
@@ -164,7 +173,7 @@ def generate_plots():
         max_jumps_per_criteria.append(np.percentile(jumps, 95))        #find index which covers 95th percentile
     saveaxs[1][3].plot(avg_jumps_per_criteria, color = 'tab:red', label = 'Average')
     saveaxs[1][3].plot(max_jumps_per_criteria, linestyle ='--', color = 'tab:gray', label = '95th percentile')
-    saveaxs[1][3].legend()
+    if is_neptune == False: saveaxs[1][3].legend()
     xticks = range(len(jumpcriteria))[::2]
     saveaxs[1][3].set_xticks(xticks)
     saveaxs[1][3].set_xticklabels(jumpcriteria[xticks])
@@ -172,7 +181,7 @@ def generate_plots():
     xticks = [0,4,9,14,19]
     saveaxs[1][3].set_xticks(xticks)
     saveaxs[1][3].set_xticklabels(jumpcriteria[xticks])
-    saveaxs[1][3].set_xlabel(r"Jumpcriteria $c_J$ [$\Delta \ell^{-1}$ kg m$^{-3}$]")
+    saveaxs[1][3].set_xlabel(r"Discontinuity criteria $c_D$ [$\Delta \ell^{-1}$ kg m$^{-3}$]")
     saveaxs[1][3].set_ylim(top=22)
     saveaxs[1][3].set_ylabel("Number of discontinuities")
     saveaxs[1][3].yaxis.set_major_locator(MaxNLocator(integer=True))
@@ -399,12 +408,13 @@ def generate_plots():
     saveaxs[1][1].locator_params(axis='y', nbins=5)
     saveaxs[1][1].set_yticks(yticklocations, yticklabels)
     saveaxs[1][1].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
+    saveaxs[1][1].set_ylim(bottom=0)
     axins = inset_zoom_axes(saveaxs[1][1], [0.5, 0.5, 0.45, 0.45])
     axins.set_xticks([0,100,200,300], [1.0,0.9,0.8,0.7])
     axins.set_xlim(300,0)
     axins.set_ylim(0,2000)
     axins.set_yticks([0, 1000, 2000], [0, 1, 2])
-    saveaxs[1][1].legend(loc = 'upper left', fontsize = 14)
+    if is_neptune == False: saveaxs[1][1].legend(loc = 'upper left', fontsize = 14)
 
     savefig[1][1].savefig('plots/' + planetname + '/11contour' + '_' + planetname + '.png', dpi=dpi)
 
@@ -458,7 +468,7 @@ def generate_plots():
     saveaxs[1][4].invert_xaxis()
     saveaxs[1][4].set_xticks(xticklocations, xticklabels)
     saveaxs[1][4].set_xlabel("Normalised radius $r/R$")
-    saveaxs[1][4].set_ylim(top = p_max)
+    saveaxs[1][4].set_ylim(bottom = -3e10, top = p_max)
     saveaxs[1][4].locator_params(axis='y', nbins=5)
     #saveaxs[1][4].set_yticks(yticklocations, yticklabels)
     saveaxs[1][4].set_ylabel(r"$p$ [Pa]")
@@ -642,7 +652,9 @@ def generate_plots():
     saveaxs[2][3].set_xticks(xticklocations, xticklabels)
     saveaxs[2][3].set_xlabel("Normalised radius $r/R$")
     saveaxs[2][3].set_ylabel(r"$\Delta\rho$ [1000 kg m$^{-3}$]")
-    saveaxs[2][3].legend()
+    saveaxs[2][3].set_ylim(bottom=0)
+    saveaxs[2][3].set_xlim(left=1023, right=0)
+    if is_neptune == False: saveaxs[2][3].legend()
 
     savefig[2][3].savefig('plots/' + planetname + '/23confintsize' + '_' + planetname + '.png', dpi=dpi)
 
@@ -733,7 +745,7 @@ def generate_plots():
     saveaxs[3][1].set_xticks(yticklocations, yticklabels)
     saveaxs[3][1].set_xlabel(r"$\rho$ [1000 kg m$^{-3}$]")
 
-    saveaxs[3][1].legend()
+    if is_neptune == False: saveaxs[3][1].legend()
 
     savefig[3][1].savefig('plots/' + planetname + '/31maxdens' + '_' + planetname + '.png', dpi=dpi)
 
@@ -749,7 +761,7 @@ def generate_plots():
     saveaxs[3][2].set_yticks(yticklocations, yticklabels)
     saveaxs[3][2].set_ylabel(r"$\rho$ [1000 kg m$^{-3}$]")
 
-    saveaxs[3][2].legend()
+    if is_neptune == False: saveaxs[3][2].legend()
 
     savefig[3][2].savefig('plots/' + planetname + '/32avgstartrespsuccres' + '_' + planetname + '.png', dpi=dpi)
 
@@ -785,7 +797,7 @@ def generate_plots():
     """
 
     saveaxs[4][3].vlines(avglocation, ymin = 0, ymax = avgvalue, linestyle ='-', color = 'tab:red', label = 'Average')
-    saveaxs[4][3].text(avglocation, avgvalue, '{:.6f}'.format(avglocation), ha='right', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small', backgroundcolor = 'white')
+    saveaxs[4][3].text(avglocation, avgvalue, '{:.5f}'.format(avglocation), ha='right', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small', backgroundcolor = 'white')
 
     #saveaxs[4][3].vlines(medianlocation, ymin = 0, ymax = medianvalue, linestyle ='-', color = 'black', label = 'Median')
     #saveaxs[4][3].text(medianlocation, medianvalue, '{:.2f}'.format(medianlocation/1000), ha='left', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small')
@@ -794,7 +806,7 @@ def generate_plots():
     #saveaxs[4][3].set_xticks(yticklocations, yticklabels)
     saveaxs[4][3].set_xlabel(r"Normalised Moment of Inertia $\lambda$ [unitless]")
 
-    saveaxs[4][3].legend()
+    if is_neptune == False: saveaxs[4][3].legend()
 
     saveaxs[4][3].get_yaxis().set_ticks([])
 
@@ -807,9 +819,9 @@ def generate_plots():
     #FR
     #saveaxs[4][4].set_title('Flattening Ratios' + plottitlestr)
     saveaxs[4][4].set_title(plottitlestr)
-    if is_neptune: offset = 1.00629
-    else: offset = 1.00680
-    maxfrbinvalues, maxfrbinedges, _  = saveaxs[4][4].hist((results['flattening ratios']-offset)*10**6, bins = 200, color = defaultcolor, density = True)
+    if is_neptune: offset = 1.00629; offsetstr = "1.00629"
+    else: offset = 1.00680; offsetstr = "1.00680"
+    maxfrbinvalues, maxfrbinedges, _  = saveaxs[4][4].hist((results['flattening ratios']-offset)*10**5, bins = 200, color = defaultcolor, density = True)
     maxfrbinlocations = (maxfrbinedges[:-1]+maxfrbinedges[1:])/2
     
     weighted_indices = maxfrbinvalues*np.arange(len(maxfrbinvalues))
@@ -823,7 +835,7 @@ def generate_plots():
     medianvalue = maxfrbinvalues[medianindex]
     """
     saveaxs[4][4].vlines(avglocation, ymin = 0, ymax = avgvalue, linestyle ='-', color = 'tab:red', label = 'Average')
-    saveaxs[4][4].text(avglocation, avgvalue, '{:.8f}'.format(avglocation/10**6+offset), ha='right', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small', backgroundcolor = 'white')
+    saveaxs[4][4].text(avglocation, avgvalue, '{:.3f}'.format(avglocation), ha='right', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small', backgroundcolor = 'white')
 
     #saveaxs[4][4].vlines(medianlocation, ymin = 0, ymax = medianvalue, linestyle ='-', color = 'black', label = 'Median')
     #saveaxs[4][4].text(medianlocation, medianvalue, '{:.2f}'.format(medianlocation), ha='left', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small')
@@ -831,9 +843,9 @@ def generate_plots():
     saveaxs[4][4].set_ylabel('Relative frequency')
     #saveaxs[4][4].set_xticks(yticklocations, yticklabels)
     saveaxs[4][4].ticklabel_format(useOffset=False)
-    saveaxs[4][4].set_xlabel(r"$r_f$ [unitless]")
+    saveaxs[4][4].set_xlabel(f"$(r_f - {offsetstr}) \cdot 10^5$ [unitless]")
 
-    saveaxs[4][4].legend()
+    if is_neptune == False: saveaxs[4][4].legend()
 
     saveaxs[4][4].get_yaxis().set_ticks([])
 
