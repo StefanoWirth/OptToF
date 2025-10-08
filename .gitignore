@@ -3,3 +3,14 @@ build/
 PyToF.egg-info/
 .ipynb_checkpoints/
 *.pyc
+PyToF/FunctionGenerators.py
+PyToF/experiments.py
+PyToF/experiments copy.py
+PyToF/FunctionGenerators.py
+PyToF/experiments.py
+PyToF/results.hdf5
+*.hdf5
+*.pkl
+/PyToF/planet_data
+/PyToF/plots
+*.png

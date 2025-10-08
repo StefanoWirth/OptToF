@@ -5,7 +5,7 @@
 import numpy as np
 import functools
 
-from PyToF.color import c
+from color import c
 
 class ToF:
 
@@ -142,7 +142,7 @@ class ToF:
         self._set_IC()
 
         #Define routines for the user: 
-        from PyToF.FunctionsToF import get_r_l_mu, set_barotrope, set_density_function, relax_to_shape, relax_to_barotrope, relax_to_density, get_U_l_mu, get_NMoI
+        from FunctionsToF import get_r_l_mu, set_barotrope, set_density_function, relax_to_shape, relax_to_barotrope, relax_to_density, get_U_l_mu, get_NMoI
 
         self.get_r_l_mu             = functools.partial(get_r_l_mu,             self)
         self.set_barotrope          = functools.partial(set_barotrope,          self)
@@ -153,7 +153,7 @@ class ToF:
         self.get_U_l_mu             = functools.partial(get_U_l_mu,             self)
         self.get_NMoI               = functools.partial(get_NMoI,               self)
 
-        from PyToF.MonteCarloToF import set_check_param, baro_cost_function, dens_cost_function, run_baro_MC, run_dens_MC, classify_and_save_state
+        from MonteCarloToF import set_check_param, baro_cost_function, dens_cost_function, run_baro_MC, run_dens_MC, classify_and_save_state
 
         self.set_check_param            = functools.partial(set_check_param,            self)
         self.baro_cost_function         = functools.partial(baro_cost_function,         self)
@@ -162,7 +162,7 @@ class ToF:
         self.run_dens_MC                = functools.partial(run_dens_MC,                self)
         self.classify_and_save_state    = functools.partial(classify_and_save_state,    self)
 
-        from PyToF.PlotToF import plot_xy, plot_shape, plot_ss, plot_state_xy, plot_state_corr_xy, plot_autocorr
+        from PlotToF import plot_xy, plot_shape, plot_ss, plot_state_xy, plot_state_corr_xy, plot_autocorr
 
         self.plot_xy            = functools.partial(plot_xy,            self)
         self.plot_shape         = functools.partial(plot_shape,         self)

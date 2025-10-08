@@ -6,8 +6,8 @@ import numpy as np
 import scipy
 import time
 
-import PyToF.AlgoToF as AlgoToF
-from PyToF.color import c
+import AlgoToF as AlgoToF
+from color import c
 
 def _mass_int(class_obj):
 
