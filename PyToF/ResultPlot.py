@@ -90,6 +90,8 @@ def generate_plots():
     saveaxs[0][0].plot(range(1023), results['raw jumps expl'], color = defaultcolor)
     saveaxs[0][0].invert_xaxis()
     saveaxs[0][0].set_xticks(xticklocations, xticklabels)
+    saveaxs[0][0].set_xlim(left = 1023, right = 0)
+    saveaxs[0][0].set_ylim(bottom = -0.2)
     saveaxs[0][0].set_xlabel("Normalised radius $r/R$")
     saveaxs[0][0].set_ylabel(r"$\overline{\Delta\rho}$ [kg m$^{-3}$]")
 
@@ -124,6 +126,8 @@ def generate_plots():
     saveaxs[0][2].plot(x[0:1023], y[0:1023], color = defaultcolor)
     saveaxs[0][2].invert_xaxis()
     saveaxs[0][2].set_xticks(xticklocations, xticklabels)
+    saveaxs[0][2].set_xlim(left = 1023, right = 0)
+    saveaxs[0][2].set_ylim(bottom = -0.0005)
     saveaxs[0][2].set_xlabel("Normalised radius $r/R$")
     #saveaxs[0][2].get_yaxis().set_ticks([])
     saveaxs[0][2].set_ylabel(r"$\overline{\Delta r}$ [$\Delta \ell$]")
@@ -137,6 +141,8 @@ def generate_plots():
     saveaxs[0][3].plot(x[0:1023], y[0:1023], color = defaultcolor)
     saveaxs[0][3].invert_xaxis()
     saveaxs[0][3].set_xticks(xticklocations, xticklabels)
+    saveaxs[0][3].set_xlim(left = 1023, right = 0)
+    saveaxs[0][3].set_ylim(bottom = -0.2)
     saveaxs[0][3].set_xlabel("Normalised radius $r/R$")
     saveaxs[0][3].set_ylabel(r"$\overline{\Delta\rho}$ [kg m$^{-3}$]")
 
