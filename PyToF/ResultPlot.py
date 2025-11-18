@@ -30,7 +30,7 @@ RES = 4*N
 rho_max = 2e4
 p_max = 3e12
 
-is_neptune = True
+is_neptune = False
 
 def generate_plots():
     tic = time.perf_counter()
@@ -81,6 +81,60 @@ def generate_plots():
     xticklabels = np.linspace(0, 1, nticks)
     yticklocations = [0, 5000, 10000, 15000, 20000]
     yticklabels = [0, 5, 10, 15, 20]
+
+    # J2 vs J4 (outliers killed)
+
+    if is_neptune:  Target_Js = 1e6*np.array([3401.655e-6, -33.294e-6]); Sigma_Js = 1e6*np.array([   3.994e-6,  10.000e-6])
+    else:           Target_Js = 1e6*np.array([3509.291e-6, -35.522e-6]); Sigma_Js = 1e6*np.array([   0.412e-6,   0.466e-6])
+    
+    
+    J2 = 1e6*results['J2']
+    J4 = 1e6*results['J4']
+
+    linregress_result = linregress(J2, J4)
+    
+    print("Slope:")
+    print(linregress_result.slope)
+    print("R-value:")
+    print(linregress_result.rvalue)
+    print("P-value:")
+    print(linregress_result.pvalue)
+    print("Std-err:")
+    print(linregress_result.stderr)
+    print("Covariance")
+    print(np.cov(J2,J4)[0,1])
+
+    toleranceofheretics = Sigma_Js[0]
+    thepurger = ((np.abs(J2 - Target_Js[0]) < toleranceofheretics) & (np.abs(J4 - Target_Js[1]) < Sigma_Js[1]))
+
+    saveaxs[5][3].set_title(plottitlestr)
+    saveaxs[5][3].scatter(J2[thepurger], J4[thepurger], color = defaultcolor, s=0.5)
+    saveaxs[5][3].errorbar(x=Target_Js[0], y=Target_Js[1], xerr=min(toleranceofheretics,Sigma_Js[0]), yerr=Sigma_Js[1], marker = '*', color = 'k')
+    saveaxs[5][3].set_xlabel(r"$J_2  \ [10^{-6}]$")
+    saveaxs[5][3].set_ylabel(r"$J_4  \ [10^{-6}]$")
+    savefig[5][3].savefig('plots/' + planetname + '/53J2J4correlation' + '_' + planetname + '.png', dpi=dpi)
+
+    # J2 vs J4 (relative error)
+
+    saveaxs[5][4].set_title(plottitlestr)
+    if is_neptune:  Target_Js = np.array([3401.655e-6, -33.294e-6]); Sigma_Js = np.array([   3.994e-6,  10.000e-6])
+    else:           Target_Js = np.array([3509.291e-6, -35.522e-6]); Sigma_Js = np.array([   0.412e-6,   0.466e-6])
+    saveaxs[5][4].scatter((results['J2'] - Target_Js[0])/Sigma_Js[0], (results['J4'] - Target_Js[1])/Sigma_Js[1], color = defaultcolor, s=0.5)
+    saveaxs[5][4].errorbar(0, 0, 1, 1, marker = '*', color = 'k')
+    saveaxs[5][4].set_xlabel(r"$J_2  \ [normalised]$")
+    saveaxs[5][4].set_ylabel(r"$J_4  \ [normalised]$")
+    savefig[5][4].savefig('plots/' + planetname + '/54J2J4correlation' + '_' + planetname + '.png', dpi=dpi)
+
+    # J2 vs J4 (true)
+
+    saveaxs[5][5].set_title(plottitlestr)
+    saveaxs[5][5].scatter(1e6*results['J2'], 1e6*results['J4'], color = defaultcolor, s=0.5)
+    if is_neptune:  Target_Js = 1e6*np.array([3401.655e-6, -33.294e-6]); Sigma_Js = 1e6*np.array([   3.994e-6,  10.000e-6])
+    else:           Target_Js = 1e6*np.array([3509.291e-6, -35.522e-6]); Sigma_Js = 1e6*np.array([   0.412e-6,   0.466e-6])
+    saveaxs[5][5].errorbar(x=Target_Js[0], y=Target_Js[1], xerr=Sigma_Js[0], yerr=Sigma_Js[1], marker = '*', color = 'k')
+    saveaxs[5][5].set_xlabel(r"$J_2  \ [10^{-6}]$")
+    saveaxs[5][5].set_ylabel(r"$J_4  \ [10^{-6}]$")
+    savefig[5][5].savefig('plots/' + planetname + '/55J2J4correlation' + '_' + planetname + '.png', dpi=dpi)
 
     #JUMPS
 
@@ -849,7 +903,8 @@ def generate_plots():
     saveaxs[4][4].set_ylabel('Relative frequency')
     #saveaxs[4][4].set_xticks(yticklocations, yticklabels)
     saveaxs[4][4].ticklabel_format(useOffset=False)
-    saveaxs[4][4].set_xlabel(f"$(r_f - {offsetstr}) \cdot 10^5$ [unitless]")
+    #TODO: BAD
+    #saveaxs[4][4].set_xlabel(f"$(r_f - {offsetstr}) \cdot 10^5$ [unitless]")
 
     if is_neptune == False: saveaxs[4][4].legend()
 

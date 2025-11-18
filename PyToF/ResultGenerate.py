@@ -15,7 +15,7 @@ rho_max = 2e4
 p_max = 3e12
 
 #IMPORTANT NOTICE: ensure files 'bigrun_neptune.hdf5' and 'bigrun_uranus.hdf5' are in the same directory, as are ClassToF, AlgoToF, FunctionsToF.
-is_neptune = True
+is_neptune = False
 dodifferentjumpcriteria = True
 
 def save_results():
@@ -27,10 +27,10 @@ def save_results():
 
     #neptune
     if is_neptune:
-        filename = 'newrun_neptune.hdf5'
+        filename = 'revisionrun_neptune.hdf5'
     #uranus
     else:
-        filename = 'newrun_uranus.hdf5'
+        filename = 'revisionrun_uranus.hdf5'
 
 
     with h5py.File(filename, 'r') as f:
@@ -73,6 +73,8 @@ def generate_results(f):
     nJ:                         INT number of samples that respected rho_MAX and explained J
     rho_MAX respected%:         FLOAT !NOT PERCENTAGES ratio of result densities that did not exceed rho_MAX
     Js explained%:              FLOAT !NOT PERCENTAGES ratio of result densities that did not exceed rho_MAX that explained the Js
+    J2:                         ARRAY (from list) J2s of result distributions that respect rho_MAX that explained the Js
+    J4:                         ARRAY (from list) J4s of result distributions that respect rho_MAX that explained the Js
     min dens:                   ARRAY (from list) minimum densities of result distributions that respect rho_MAX
     max dens:                   ARRAY (from list) maximum densities of result distributions that respect rho_MAX
     max start dens:             FLOAT average maximum starting density over all starting distributions
@@ -112,6 +114,7 @@ def generate_results(f):
     toftiming = [0,0,0] #algotof | moments of inertia | pressure
 
     global N, n, nrespected, nJsexplained
+    global J2, J4
     global min_dens, max_dens, max_start_dens, dens_Js_explained_view
     global moments_of_inertia, flattening_ratios
     global raw_jumps_tot, raw_jumps_expl, raw_jumps_not_expl, processed_jumps, jumps_Js_explained_view, nr_jumps, nr_jumps_Js_explained_view, nr_jumps_per_criterion
@@ -125,6 +128,9 @@ def generate_results(f):
     n = 0
     nrespected = 0
     nJsexplained = 0
+
+    J2 = []
+    J4 = []
 
     min_dens = []
     max_dens = []
@@ -176,6 +182,9 @@ def generate_results(f):
     results['nJ'] = nJsexplained
     results['rho_MAX respected%'] =  nrespected / n
     results['Js explained%'] = nJsexplained / nrespected
+
+    results['J2'] = np.array(J2)
+    results['J4'] = np.array(J4)
 
     results['min dens'] = np.array(min_dens)
     results['max dens'] = np.array(max_dens)
@@ -242,6 +251,7 @@ def analyse_dataset(name, object):
     global timing, jumptiming, toftiming
 
     global N, n, nrespected, nJsexplained
+    global J2, J4
     global min_dens, max_dens, max_start_dens, dens_Js_explained_view
     global moments_of_inertia, flattening_ratios
     global raw_jumps_tot, raw_jumps_expl, raw_jumps_not_expl, processed_jumps, jumps_Js_explained_view, nr_jumps, nr_jumps_Js_explained_view, nr_jumps_per_criterion
@@ -279,6 +289,11 @@ def analyse_dataset(name, object):
 
     if Jsexplained == True: nJsexplained += 1
     #else: J_failures.append(starting_rho)
+
+
+    if True or Jsexplained == True:
+        J2.append(object.attrs['J2'])
+        J4.append(object.attrs['J4'])
 
     #dens
     #assert(rho[1]>0)

@@ -180,9 +180,16 @@ def full_gradient(OptToF, ToF, params):
     Flag = False
     if random.random() <  OptToF.opts['DBGshowchance']: Flag = True
     gradvec = gradient_vector_exp_fixed(ToF, params, gamma, OptToF.weights)
+    rho = 0.98
 
     for i in range(n):
-        temp = -(1/n)*(ToF.R_eq_to_R_m**(2*(i+1)))*((ToF.Js[i+1] - ToF.opts['Target_Js'][i])/ToF.opts['Sigma_Js'][i]**2)*(ToF.SS[i+1][-1]-ToF.SS[i+1][-2])*gradvec
+        if i == 0: j = 1
+        if i == 1: j = 0
+        # Uncorrelated
+        temp = -(1/n)*((ToF.Js[i+1] - ToF.opts['Target_Js'][i])/ToF.opts['Sigma_Js'][i]**2)*(ToF.R_eq_to_R_m**(2*(i+1)))*(ToF.SS[i+1][-1]-ToF.SS[i+1][-2])*gradvec
+        # Correlated with rho
+        #temp = -(1/n)*((ToF.Js[i+1] - ToF.opts['Target_Js'][i])/ToF.opts['Sigma_Js'][i]**2 - rho * (ToF.Js[j+1] - ToF.opts['Target_Js'][j])/(ToF.opts['Sigma_Js'][i]*ToF.opts['Sigma_Js'][j]))*(ToF.R_eq_to_R_m**(2*(i+1)))*(ToF.SS[i+1][-1]-ToF.SS[i+1][-2])*gradvec
+
         objective_gradient += temp
         if Flag:
             print("Magnitude of J gradient Nr " + str(2*(i+1)))

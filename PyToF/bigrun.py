@@ -47,24 +47,24 @@ if __name__ == '__main__':
 
     kwargs = {}
 
-    kwargs['verbosity'] = 3
-    kwargs['time'] = True
-    kwargs['parallelize'] = True
+    kwargs['verbosity'] = 0
+    kwargs['time'] = False
+    kwargs['parallelize'] = True                        #TODO: MODIFY
     kwargs['steps'] = 3000
     kwargs['epoch size'] = 25
     kwargs['learning rate'] = 0.08  #This learning rate has been revealed to me by god
     kwargs['costfactor'] = 1e2
-    kwargs['ToF convergence tolerance'] = 1e-6
-    kwargs['figures'] = True
-    kwargs['kitty'] = 0
-    kwargs['write to file'] = False
-    kwargs['continuous running'] = False
-    kwargs['cores'] = 8
-    kwargs['file location'] = 'newrun_uranus.hdf5' #TODO: MODIFY
+    kwargs['ToF convergence tolerance'] = 1e-6          #TODO: MODIFY
+    kwargs['figures'] = False
+    kwargs['kitty'] = 0                                 #TODO: MODIFY
+    kwargs['write to file'] = True
+    kwargs['continuous running'] = True
+    kwargs['cores'] = 8                                 #TODO: MODIFY
+    kwargs['file location'] = 'revisionrun_uranus.hdf5' #TODO: MODIFY
     kwargs['minimum increase'] = 1
     kwargs['DBGshowchance'] = 0
     #print('learning rate: '+str(kwargs['learning rate']))
     #print('cost factor: '+str(kwargs['costfactor']))
     Optimiser = OptToF(**kwargs)
 
-    Optimiser.run(UranusToF) #TODO: MODIFY
+    Optimiser.run(UranusToF)                            #TODO: MODIFY

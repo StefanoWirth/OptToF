@@ -3,6 +3,7 @@
 ###########################################################
 
 import numpy as np
+from scipy.stats import multivariate_normal
 import matplotlib.pyplot as plt
 from ClassAdam import Adam
 from OptToF import *
@@ -175,7 +176,18 @@ def categoriser(OptToF, ToF, lock):
     
     signal.signal(signal.SIGINT, OptToF.interrupt_handler)
 
+    Target_Js = ToF.opts['Target_Js']
+    Sigma_Js = ToF.opts['Sigma_Js']
+
+    # Uncorrelated
+    rv = multivariate_normal(mean = Target_Js, cov = [[Sigma_Js[0]**2, 0],[0, Sigma_Js[1]**2]])
+    # Correlated with rho
+    rho = 0.98
+    # rv = multivariate_normal(mean = Target_Js, cov = [[Sigma_Js[0]**2, rho * Sigma_Js[0] * Sigma_Js[1]],[rho * Sigma_Js[0] * Sigma_Js[1], Sigma_Js[1]**2]])
+
     while True: #This is always a good idea
+
+        ToF.opts['Target_Js'] = rv.rvs()
 
         #Run Optimisation
         starting_distr, result_distr, ToF = run_opt(OptToF, ToF)
@@ -185,8 +197,8 @@ def categoriser(OptToF, ToF, lock):
         is_rho_MAX_respected = True
 
         #check if Js are explained within one sigma
-        for i in range(min(len(ToF.opts['Target_Js']),len(ToF.Js)-1)):
-            if abs((ToF.Js[i+1] - ToF.opts['Target_Js'][i])/ToF.opts['Sigma_Js'][i]) >= 1:
+        for i in range(min(len(Target_Js),len(ToF.Js)-1)):
+            if abs((ToF.Js[i+1] - Target_Js[i])/Sigma_Js[i]) >= 1:
                 are_Js_explained = False
 
         #check if maximum density is explained
@@ -204,8 +216,11 @@ def categoriser(OptToF, ToF, lock):
                 dset = f.create_dataset(str(uuid.uuid4()), data = result)
                 dset.attrs['J2'] = ToF.Js[1]
                 dset.attrs['J4'] = ToF.Js[2]
+                dset.attrs['Target J2'] = ToF.opts['Target_Js'][0]
+                dset.attrs['Target J4'] = ToF.opts['Target_Js'][1]
                 dset.attrs['Js explained'] = are_Js_explained
                 dset.attrs['rho_MAX respected'] = is_rho_MAX_respected
+                dset.attrs['Js explanation strength'] = rv.pdf([ToF.Js[1], ToF.Js[2]])
                 dset.attrs['flattening ratio'] = ToF.R_eq_to_R_m
                 dset.attrs['nmoi'] = get_NMoI(ToF, N = 201)
                 f.close()
