@@ -14,3 +14,4 @@ PyToF/results.hdf5
 /PyToF/planet_data
 /PyToF/plots
 *.png
+/PyToF/BaseRhos

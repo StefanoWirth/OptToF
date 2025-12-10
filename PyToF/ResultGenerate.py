@@ -1,6 +1,8 @@
 import numpy as np
 import h5py
 import time
+import math
+import random
 import pickle
 import signal
 import scipy
@@ -8,15 +10,18 @@ from ClassToF import ToF
 import AlgoToF
 from FunctionsToF import get_NMoI, _pressurize
 
-N_uranus = 500000
-N_neptune = 500000
+N_uranus = 791901
+N_neptune = 791901
 
 rho_max = 2e4
 p_max = 3e12
 
 #IMPORTANT NOTICE: ensure files 'bigrun_neptune.hdf5' and 'bigrun_uranus.hdf5' are in the same directory, as are ClassToF, AlgoToF, FunctionsToF.
 is_neptune = False
+is_corr = True
 dodifferentjumpcriteria = True
+donewacceptancecriterion = True
+dodistcomparison = True
 
 def save_results():
     tic = time.perf_counter()
@@ -30,7 +35,10 @@ def save_results():
         filename = 'revisionrun_neptune.hdf5'
     #uranus
     else:
-        filename = 'revisionrun_uranus.hdf5'
+        if is_corr:
+            filename = 'revisionrun_uranus_corr.hdf5'
+        else:
+            filename = 'revisionrun_uranus.hdf5'
 
 
     with h5py.File(filename, 'r') as f:
@@ -38,11 +46,15 @@ def save_results():
 
 
     if is_neptune:
-        with open('result_dict_neptune.pkl', 'xb') as f:
+        with open('result_dict_neptune.pkl', 'wb') as f:
             pickle.dump(results, f)
     else:
-        with open('result_dict_uranus.pkl', 'xb') as f:
-            pickle.dump(results, f)
+        if is_corr:
+            with open('result_dict_uranus_corr_dist_new_all_fixed.pkl', 'wb') as f:
+                pickle.dump(results, f)
+        else:
+            with open('result_dict_uranus.pkl', 'wb') as f:
+                pickle.dump(results, f)
 
     toc = time.perf_counter()
 
@@ -73,24 +85,18 @@ def generate_results(f):
     nJ:                         INT number of samples that respected rho_MAX and explained J
     rho_MAX respected%:         FLOAT !NOT PERCENTAGES ratio of result densities that did not exceed rho_MAX
     Js explained%:              FLOAT !NOT PERCENTAGES ratio of result densities that did not exceed rho_MAX that explained the Js
-    J2:                         ARRAY (from list) J2s of result distributions that respect rho_MAX that explained the Js
-    J4:                         ARRAY (from list) J4s of result distributions that respect rho_MAX that explained the Js
-    min dens:                   ARRAY (from list) minimum densities of result distributions that respect rho_MAX
-    max dens:                   ARRAY (from list) maximum densities of result distributions that respect rho_MAX
+    weights:                    ARRAY (from list) weight of solution (explanation strength) of accepted result distributions
+    J2:                         ARRAY (from list) J2s of accepted result distributions
+    J4:                         ARRAY (from list) J4s of accepted result distributions
+    min dens:                   ARRAY (from list) minimum densities of accepted result distributions
+    max dens:                   ARRAY (from list) maximum densities of accepted result distributions
     max start dens:             FLOAT average maximum starting density over all starting distributions
-    moments of inertia:         ARRAY (from list) moments of inertia of result distributions that explain the Js
-    flattening ratios:          ARRAY (from list) flattening coefficient of result distributions that explain the Js
-    dens Js explained view:     ARRAY (from list) of bools that creates a view for only runs that explained the Js 
-    raw jumps tot:              ARRAY of shape rho containing the jump increase over all detected jumps at that step (over all rho that respect rho_MAX, divided by number of such)
-    raw jumps expl:             ARRAY of shape rho containing the jump increase over all detected jumps at that step (over all rho that respect rho_MAX and explain Js, divided by number of such)
-    raw jumps not expl:         ARRAY of shape rho containing the jump increase over all detected jumps at that step (over all rho that respect rho_MAX and don't explain Js, divided by number of such)
-    processed jumps:            2D ARRAY (from list of tuple) containing real jumplocation as float, jumpsize (dx) and jumpmagnitude (dy) (over all that respect rho_MAX)
-    jumps Js explained view:    ARRAY (from list) of bools that creates a view of processed jumps for only those that explained the Js
-    nr jumps:                   ARRAY (from list) number of jumps of result distributions that respect rho_MAX
-    nr jumps Js explained view: ARRAY (from list) of bools that creates a view of nr jumps for only those that explained the Js 
-    nr jumps per criterion:     2D ARRAY (from list of lists) of shape len(jumpcriteria) * number of samples that tracks number of jumps of result distributions that respect rho_MAX over some possible jumpcriteria
-    NOPE rho_MAX failures:      NOPE     2D ARRAY of all failure starting distributions (rho_MAX not respected)
-    NOPE J failures:            NOPE     2D ARRAY of all failure starting distributions (rho_MAX respected but Js not explained)
+    moments of inertia:         ARRAY (from list) moments of inertia of accepted result distributions
+    flattening ratios:          ARRAY (from list) flattening coefficient of accepted result distributions
+    raw jumps expl:             ARRAY of shape rho containing the jump increase over all detected jumps at that step (over all accepted rho, divided by number of such)
+    processed jumps:            2D ARRAY (from list of tuple) containing real jumplocation as float, jumpsize (dx) and jumpmagnitude (dy) (over all accepted)
+    nr jumps:                   ARRAY (from list) number of jumps of accepted result distributions
+    nr jumps per criterion:     2D ARRAY (from list of lists) of shape len(jumpcriteria) * number of samples that tracks number of jumps of accepted result distributions over some possible jumpcriteria
     avg start:                  ARRAY of shape rho containing the average starting distribution
     avg respected start:        ARRAY of shape rho containing the average starting distribution respected rho_MAX
     avg successful start:       ARRAY of shape rho containing the average starting distribution that ended up explaining the Js
@@ -113,21 +119,31 @@ def generate_results(f):
     jumptiming = [0,0,0,0,0,0,0] # find jump | cut fat | find location | save results | wasted | initial gen | searching
     toftiming = [0,0,0] #algotof | moments of inertia | pressure
 
-    global N, n, nrespected, nJsexplained
+    global N, n, nrespected, nJsexplained, weights
     global J2, J4
-    global min_dens, max_dens, max_start_dens, dens_Js_explained_view
+    global min_dens, max_dens, max_start_dens
     global moments_of_inertia, flattening_ratios
-    global raw_jumps_tot, raw_jumps_expl, raw_jumps_not_expl, processed_jumps, jumps_Js_explained_view, nr_jumps, nr_jumps_Js_explained_view, nr_jumps_per_criterion
-    global rho_MAX_failures, J_failures
+    global raw_jumps_expl, processed_jumps, nr_jumps, nr_jumps_per_criterion
     global avg_start, avg_respect_start, avg_successful_start, avg_successful_result, avg_change
     global RES, x, y, distr_grid_dens, distr_grid_pressure
     global core_dens_v_jump_loc
     global core_dens_v_max_jump_loc
-    
+
+    if dodistcomparison:
+        global base_rhos
+        global max_distances
+        global ringbuffer_size
+        global buffer_array_starting_rhos
+        global running_average_starting_rhos_dist
+        global buffer_array_rhos
+        global running_average_rhos_dist
+        global n_close_rhos
+
     N = 2**10    #size of datasets
     n = 0
     nrespected = 0
     nJsexplained = 0
+    weights = []
 
     J2 = []
     J4 = []
@@ -135,22 +151,14 @@ def generate_results(f):
     min_dens = []
     max_dens = []
     max_start_dens = 0
-    dens_Js_explained_view = []
 
     moments_of_inertia = []
     flattening_ratios = []
 
-    raw_jumps_tot = np.zeros(N - 1)
     raw_jumps_expl = np.zeros(N - 1)
-    raw_jumps_not_expl = np.zeros(N - 1)
     processed_jumps = []
-    jumps_Js_explained_view = []
     nr_jumps = []
-    nr_jumps_Js_explained_view = []
     nr_jumps_per_criterion = [[] for criterion in jumpcriteria]
-
-    rho_MAX_failures = []
-    J_failures = []
 
     avg_start = np.zeros(N)
     avg_respect_start = np.zeros(N)
@@ -167,6 +175,19 @@ def generate_results(f):
     core_dens_v_jump_loc = []
     core_dens_v_max_jump_loc = []
 
+    if dodistcomparison:
+        if is_neptune:  base_rhos = np.load("PyToF/baserhosneptune.npy")
+        else:           base_rhos = np.load("PyToF/baserhosuranus.npy")
+        N_base_rhos = base_rhos.shape[0]
+        ringbuffer_size = 128
+        # max_distances = [1024*0.95e2, 1024*1.15e2, 1024*1.25e2] L1 norm
+        max_distances = [3e2, 4e2, 5e2, 6e2, 7e2] #Linf norm
+        buffer_array_starting_rhos = np.zeros((5, N_base_rhos, ringbuffer_size, N), dtype= np.float32)
+        running_average_starting_rhos_dist = np.zeros((5, N_base_rhos))
+        buffer_array_rhos = np.zeros((5, N_base_rhos, ringbuffer_size, N), dtype= np.float32)
+        running_average_rhos_dist = np.zeros((5, N_base_rhos))
+        n_close_rhos = np.zeros((5, N_base_rhos), dtype = np.int32)
+
     #main loop
     global timestartcall, timeendcall, darktime
     timestartcall = time.perf_counter()
@@ -177,11 +198,14 @@ def generate_results(f):
 
     results = {}
 
+    weights = np.array(weights)
+
     results['n']  = n
     results['nR'] = nrespected
     results['nJ'] = nJsexplained
     results['rho_MAX respected%'] =  nrespected / n
     results['Js explained%'] = nJsexplained / nrespected
+    results['weights'] = weights/np.mean(weights)
 
     results['J2'] = np.array(J2)
     results['J4'] = np.array(J4)
@@ -189,22 +213,14 @@ def generate_results(f):
     results['min dens'] = np.array(min_dens)
     results['max dens'] = np.array(max_dens)
     results['max start dens'] = max_start_dens / n
-    results['dens Js explained view'] = np.array(dens_Js_explained_view)
   
     results['moments of inertia'] = np.array(moments_of_inertia)
     results['flattening ratios'] = np.array(flattening_ratios)
 
-    results['raw jumps tot'] = raw_jumps_tot / nrespected
     results['raw jumps expl'] = raw_jumps_expl / nJsexplained
-    results['raw jumps not expl'] = raw_jumps_not_expl / (nrespected - nJsexplained)
     results['processed jumps'] = np.asarray(processed_jumps)
-    results['jumps Js explained view'] = np.array(jumps_Js_explained_view)
     results['nr jumps'] = np.array(nr_jumps)
-    results['nr jumps Js explained view'] = np.array(nr_jumps_Js_explained_view)
     results['nr jumps per criterion'] = np.asarray(nr_jumps_per_criterion)
-
-    results['rho_MAX failures'] = np.asarray(rho_MAX_failures)
-    results['J failures'] = np.asarray(J_failures)
 
     results['avg start'] = avg_start / n
     results['avg respected start'] = avg_respect_start / nrespected
@@ -215,11 +231,26 @@ def generate_results(f):
     results['x'] = x
     results['y'] = y
     results['RES'] = RES
-    results['distr grid density'] = np.divide(distr_grid_dens, nJsexplained)
-    results['distr grid pressure'] = np.divide(distr_grid_pressure, nJsexplained)
+    results['distr grid density'] = np.divide(distr_grid_dens, np.sum(weights))
+    results['distr grid pressure'] = np.divide(distr_grid_pressure, np.sum(weights))
 
     results['core dens v jump loc'] = np.asarray(core_dens_v_jump_loc)
     results['core dens v max jump loc'] = np.asarray(core_dens_v_max_jump_loc)
+
+    #results['average starting rhos'] = running_total_starting_rhos / n_close_rhos[:, :, np.newaxis]
+    #results['average starting rhos dist'] = running_total_starting_rhos_dist / n_close_rhos
+    #results['average rhos'] = running_total_rhos / n_close_rhos[:, :, np.newaxis]
+    #results['average rhos dist'] = running_total_rhos_dist / n_close_rhos
+    
+    # average is sum of all dists divided by number of dists = n(n - 1)/2
+    #n_dists = n_close_rhos*(n_close_rhos - 1)//2 #int div just to be sure
+    #n_dists[n_dists == 0] = -1 # replace 0 dists with -1 to avoid 0/0
+    
+    
+    if dodistcomparison:
+        results['average starting rhos dist'] = running_average_starting_rhos_dist# / n_dists
+        results['average rhos dist'] = running_average_rhos_dist# / n_dists
+        results['n close rhos'] = n_close_rhos
 
     print()
     #fileread, dens, avgchange, ToF (calc, MoI, ratios, pressures), distr, jump, jumpcriteria
@@ -250,21 +281,40 @@ def analyse_dataset(name, object):
 
     global timing, jumptiming, toftiming
 
-    global N, n, nrespected, nJsexplained
+    global N, n, nrespected, nJsexplained, weights
     global J2, J4
-    global min_dens, max_dens, max_start_dens, dens_Js_explained_view
+    global min_dens, max_dens, max_start_dens
     global moments_of_inertia, flattening_ratios
-    global raw_jumps_tot, raw_jumps_expl, raw_jumps_not_expl, processed_jumps, jumps_Js_explained_view, nr_jumps, nr_jumps_Js_explained_view, nr_jumps_per_criterion
-    global rho_MAX_failures, J_failures
+    global raw_jumps_expl, processed_jumps, nr_jumps, nr_jumps_per_criterion
     global avg_start, avg_respect_start, avg_successful_start, avg_successful_result, avg_change
     global RES, x, y, distr_grid_dens, distr_grid_pressure
     
     global core_dens_v_max_jump_loc
     global core_dens_v_jump_loc
 
+    if dodistcomparison:
+        global base_rhos
+        global max_distances
+        global ringbuffer_size
+        global buffer_array_starting_rhos
+        global running_average_starting_rhos_dist
+        global buffer_array_rhos
+        global running_average_rhos_dist
+        global n_close_rhos
+
     global timestartcall, timeendcall, darktime
     timestartcall = time.perf_counter()
     darktime += timestartcall - timeendcall #time between start of this call and end of last call, i.e., time used by visititems
+
+    if n != 0 and n % 100 == 0:
+        duration = time.perf_counter() - starttime
+        rate = (n/duration)
+        esttimerem = (N_uranus - n)/rate
+        days = int(esttimerem // (60*60*24))
+        esttimerem = esttimerem%(60*60*24)
+        print('  Nr: ' + str(n) +'. Time since start: ' + time.strftime("%H:%M:%S", time.gmtime(duration)) + '. Rate: ' + '{:.0f}'.format(rate) + ' it/s. Estimated time remaining: ' + str(days) + "d "+ time.strftime("%H:%M:%S", time.gmtime(esttimerem)) + '  ' , end='\r') 
+
+    if keeprunning == False: return "Interrupted"
 
     time0 = time.perf_counter()
 
@@ -273,8 +323,18 @@ def analyse_dataset(name, object):
     pressure = object[2]
     rhoexplained = object.attrs['rho_MAX respected']
     Jsexplained = object.attrs['Js explained']
+    Jsexplainedstrength = object.attrs['Js explanation strength']
     flattening_ratio = object.attrs['flattening ratio']
     nmoi = object.attrs['nmoi']
+
+    if donewacceptancecriterion:
+        sigma = 3
+        if not is_neptune and is_corr: corr_rho = 0.9861
+        else: corr_rho = 0
+        if is_neptune:  acceptJcriterion = math.exp(-0.5*sigma**2)/(2*math.pi*3.994e-6*10.000e-6*math.sqrt(1-corr_rho**2))
+        else:           acceptJcriterion = math.exp(-0.5*sigma**2)/(2*math.pi*0.412e-6* 0.466e-6*math.sqrt(1-corr_rho**2))
+        if Jsexplainedstrength >= acceptJcriterion: Jsexplained = True
+        else:                                       Jsexplained = False
 
     time1 = time.perf_counter()
 
@@ -283,51 +343,94 @@ def analyse_dataset(name, object):
 
     if rhoexplained == False:
         #rho_MAX_failures.append(starting_rho)
+        timeendcall = time.perf_counter()
         return None
 
     nrespected += 1
 
-    if Jsexplained == True: nJsexplained += 1
-    #else: J_failures.append(starting_rho)
+    avg_respect_start += starting_rho
 
+    #if Jsexplained == True: np.save('PyToF/BaseRhos/rho' + str(random.randint(0,999999999)), rho)
+    #if nJsexplained == 4096: return "done"
+    #return
+    if dodistcomparison:
+        distances = np.linalg.norm(base_rhos - rho, ord=np.inf, axis=1)
 
-    if True or Jsexplained == True:
-        J2.append(object.attrs['J2'])
-        J4.append(object.attrs['J4'])
+        for i in range(5):
+            rho_close_indices = np.nonzero(distances <= max_distances[i])[0] #0th axis
+            for rho_close_index in rho_close_indices: # i thought unravelling for simple slicing would save time; it didnt
+                n_other_rhos = n_close_rhos[i, rho_close_index]
+                if n_other_rhos != 0:
+                    # to rebalance the running average (which is Sum / (n(n-1)/2)), we replace n-1 with n+1 in the running average
+                    # and add 2/(n(n+1)) times the new sum
+                    # note if n = 1, the current running average distance must be zero, which is why weight 0 makes sens.
+                    # note the order of operations for numerical stability
+                    
+                    add_factor = 2/n_other_rhos
+                    running_average_rhos_dist[i, rho_close_index]           *= (n_other_rhos - 1)
+                    running_average_starting_rhos_dist[i, rho_close_index]  *= (n_other_rhos - 1)
+
+                    if n_other_rhos <= ringbuffer_size:
+                        running_average_rhos_dist[i, rho_close_index]             += add_factor*np.sum(np.linalg.norm(rho[np.newaxis, :] - buffer_array_rhos[i, rho_close_index, 0:n_other_rhos, :], ord=np.inf, axis=1))
+                        running_average_starting_rhos_dist[i, rho_close_index]    += add_factor*np.sum(np.linalg.norm(starting_rho[np.newaxis, :] - buffer_array_starting_rhos[i, rho_close_index, 0:n_other_rhos, :], ord=np.inf, axis=1))
+                    else:
+                        est_factor = n_other_rhos / ringbuffer_size
+                        running_average_rhos_dist[i, rho_close_index]             += est_factor*add_factor*np.sum(np.linalg.norm(rho[np.newaxis, :] - buffer_array_rhos[i, rho_close_index, :, :], ord=np.inf, axis=1))
+                        running_average_starting_rhos_dist[i, rho_close_index]    += est_factor*add_factor*np.sum(np.linalg.norm(starting_rho[np.newaxis, :] - buffer_array_starting_rhos[i, rho_close_index, :, :], ord=np.inf, axis=1))
+    
+                    running_average_rhos_dist[i, rho_close_index]           /= (n_other_rhos + 1)
+                    running_average_starting_rhos_dist[i, rho_close_index]  /= (n_other_rhos + 1)
+                #for j in range(n_close_rhos[i, rho_close_index]): # for each close rho, go through all the other close rhos in the list and add their distance
+                #    running_total_rhos_dist[i, rho_close_index]             += np.max(np.abs(rho - running_list_rhos[i][rho_close_index][j]))
+                #    running_total_starting_rhos_dist[i, rho_close_index]    += np.max(np.abs(starting_rho - running_list_starting_rhos[i][rho_close_index][j]))
+
+                n_close_rhos[i, rho_close_index] += 1
+
+                buffer_array_rhos[i, rho_close_index, n_other_rhos%ringbuffer_size]             = rho
+                buffer_array_starting_rhos[i, rho_close_index, n_other_rhos%ringbuffer_size]    = starting_rho
+
+                #running_list_rhos[i][rho_close_index].append(rho)
+                #running_list_starting_rhos[i][rho_close_index].append(starting_rho)
+
+    if Jsexplained == False:
+        timeendcall = time.perf_counter()
+        return None    
+    
+    nJsexplained += 1
+
+    weights.append(Jsexplainedstrength)
+
+    J2.append(object.attrs['J2'])
+    J4.append(object.attrs['J4'])
 
     #dens
     #assert(rho[1]>0)
     min_dens.append(rho[1])
     max_dens.append(rho[-1])
     max_start_dens += starting_rho[-1]
-    dens_Js_explained_view.append(Jsexplained)
 
     time2 = time.perf_counter()
 
-    avg_respect_start += starting_rho
-
-    if Jsexplained == True:
-        #avg start/result & change
-        avg_successful_start += starting_rho
-        avg_successful_result += rho
-        avg_change += rho - starting_rho
+    #avg start/result & change
+    avg_successful_start += starting_rho
+    avg_successful_result += rho
+    avg_change += rho - starting_rho
 
     time3 = time.perf_counter()
 
     #flattening ratios | moments of inertia | pressure
 
-    if Jsexplained == True:
-        flattening_ratios.append(flattening_ratio)
-        moments_of_inertia.append(nmoi)
+    flattening_ratios.append(flattening_ratio)
+    moments_of_inertia.append(nmoi)
 
     time4 = time.perf_counter()
 
-    if Jsexplained == True:
-        #distribution
-        distr_grid_dens[np.arange(N), np.floor_divide(rho * RES, rho_max, casting='unsafe' ,dtype=np.dtype(int))] += 1
-        distr_grid_pressure[np.arange(N), np.minimum(np.floor_divide(pressure * RES, p_max, casting='unsafe' ,dtype=np.dtype(int)), RES - 1)] += 1
-        #the amount of obscure wizardry performed in one singular line here is likely hitherto unparalleled
-        # actually its just indexing over all x and the y index rho * RES // max_RHO (linear interpolation from 0 to max_RHO) with a safeguard
+
+    #distribution
+    distr_grid_dens[np.arange(N), np.floor_divide(rho * RES, rho_max, casting='unsafe' ,dtype=np.dtype(int))] += Jsexplainedstrength
+    distr_grid_pressure[np.arange(N), np.minimum(np.floor_divide(pressure * RES, p_max, casting='unsafe' ,dtype=np.dtype(int)), RES - 1)] += Jsexplainedstrength
+    #the amount of obscure wizardry performed in one singular line here is likely hitherto unparalleled
+    # actually its just indexing over all x and the y index rho * RES // max_RHO (linear interpolation from 0 to max_RHO) with a safeguard
     time5 = time.perf_counter()
 
     #jumps
@@ -440,25 +543,13 @@ def analyse_dataset(name, object):
 
         jumptime3 = time.perf_counter()
 
-        """
-        raw jumps tot:          ARRAY of shape rho - 1 containing the jump increase over all detected jumps at that step (over all rho that respect rho_MAX, divided by number of such)
-        raw jumps expl:         ARRAY of shape rho - 1 containing the jump increase over all detected jumps at that step (over all rho that respect rho_MAX and explain Js, divided by number of such)
-        raw jumps not expl:     ARRAY of shape rho - 1 containing the jump increase over all detected jumps at that step (over all rho that respect rho_MAX and don't explain Js, divided by number of such)
-        processed jumps:        2D ARRAY (from list of tuple) containing real jumplocation as float, jumpsize (dx) and jumpmagnitude (dy) (over all that respect rho_MAX)
-        jumps Js explained view:ARRAY (from list) of bools that creates a view of processed jumps for only those that explained the Js
-        """
+        raw_jumps_expl[jumpstart:jumpend] += jumpsteps
 
-        raw_jumps_tot[jumpstart:jumpend] += jumpsteps
-        if Jsexplained == True:
-            raw_jumps_expl[jumpstart:jumpend] += jumpsteps
-        else:
-            raw_jumps_not_expl[jumpstart:jumpend] += jumpsteps
-        processed_jumps.append((real_jumplocation, jumpsize, jumpmagnitude))
-        jumps_Js_explained_view.append(Jsexplained)
-    
+        processed_jumps.append((real_jumplocation, jumpsize, jumpmagnitude, Jsexplainedstrength))
+  
         nr_jumps_this_dataset += 1
 
-        if Jsexplained == True and firstjump == True:
+        if firstjump == True:
             #mass location
             if is_neptune == True:
                 li = np.linspace(1, 1/1024, 1024)*24766*1e3
@@ -469,10 +560,9 @@ def analyse_dataset(name, object):
             core_dens_v_jump_loc.append((rho[-1], real_jumplocation, jumpmagnitude, relative_mass))
             firstjump == False
 
-
         #find biggest jump
 
-        if Jsexplained == True and jumpmagnitude > biggest_jump_this_dataset_magnitude:
+        if jumpmagnitude > biggest_jump_this_dataset_magnitude:
             biggest_jump_this_dataset_location = real_jumplocation
             biggest_jump_this_dataset_magnitude = jumpmagnitude
 
@@ -485,7 +575,6 @@ def analyse_dataset(name, object):
         jumptiming[3] += jumptime4 - jumptime3
 
     nr_jumps.append(nr_jumps_this_dataset)
-    nr_jumps_Js_explained_view.append(Jsexplained)
 
     if biggest_jump_this_dataset_location != -1:
         core_dens_v_max_jump_loc.append((rho[-1], biggest_jump_this_dataset_location, biggest_jump_this_dataset_magnitude))
@@ -496,7 +585,7 @@ def analyse_dataset(name, object):
 
     #now we do this all again for sport for all Jsexplained
     #this is all the same code copied, redundant parts gutted, one timing, no comments, tightened
-    if Jsexplained == True and dodifferentjumpcriteria == True:
+    if dodifferentjumpcriteria == True:
         for s in range(len(jumpcriteria)):
             jumpcriterion_ = jumpcriteria[s]
             isjump = (rolled > jumpcriterion_)
@@ -535,16 +624,6 @@ def analyse_dataset(name, object):
     timing[4] += time5 - time4
     timing[5] += time6 - time5
     timing[6] += time7 - time6
-
-    if n % 100 == 0:
-        duration = time.perf_counter() - starttime
-        rate = (n/duration)
-        esttimerem = (N_uranus - n)/rate
-        days = int(esttimerem // (60*60*24))
-        esttimerem = esttimerem%(60*60*24)
-        print('  Nr: ' + str(n) +'. Time since start: ' + time.strftime("%H:%M:%S", time.gmtime(duration)) + '. Rate: ' + '{:.0f}'.format(rate) + ' it/s. Estimated time remaining: ' + str(days) + "d "+ time.strftime("%H:%M:%S", time.gmtime(esttimerem)) + '  ' , end='\r') 
-
-    if keeprunning == False: return "Interrupted"
 
     timeendcall = time.perf_counter()
 

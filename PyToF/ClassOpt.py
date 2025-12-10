@@ -182,7 +182,7 @@ def categoriser(OptToF, ToF, lock):
     # Uncorrelated
     rv = multivariate_normal(mean = Target_Js, cov = [[Sigma_Js[0]**2, 0],[0, Sigma_Js[1]**2]])
     # Correlated with rho
-    rho = 0.98
+    rho = 0.9861
     # rv = multivariate_normal(mean = Target_Js, cov = [[Sigma_Js[0]**2, rho * Sigma_Js[0] * Sigma_Js[1]],[rho * Sigma_Js[0] * Sigma_Js[1], Sigma_Js[1]**2]])
 
     while True: #This is always a good idea

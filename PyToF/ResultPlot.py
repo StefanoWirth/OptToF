@@ -9,6 +9,87 @@ from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 from matplotview import inset_zoom_axes
 from scipy.stats import linregress
+from sklearn.linear_model import LinearRegression
+
+def _default_mpl_opts():
+
+    """
+    Return default Matplotlib rcParams options for all plots.
+
+    These settings control visual aspects such as line width, marker size,
+    tick style, font size, and figure dimensions. They serve as a base for
+    all plotting functions in this module.
+
+    Returns
+    -------
+    dict
+        Dictionary of Matplotlib rcParams keys and default values.
+    """
+
+    opts = {}
+
+    #Lines and errobar: 
+    opts['lines.linewidth']             = 3.0
+    opts['lines.markersize']            = 9
+    opts['errorbar.capsize']            = 0.0
+
+    #Axes and margins:
+    opts['axes.labelsize']              = 18
+    opts['axes.xmargin']                = 0.0
+    opts['axes.ymargin']                = 0.0
+    opts['axes.formatter.useoffset']    = False
+
+    #Ticks:
+    opts['xtick.labelsize']             = 16
+    opts['ytick.labelsize']             = 16
+    opts['xtick.direction']             = 'in'
+    opts['ytick.direction']             = 'in'
+    opts['xtick.top']                   = True
+    opts['ytick.right']                 = True
+    opts['xtick.minor.visible']         = True
+    opts['ytick.minor.visible']         = True
+    opts['xtick.major.size']            = 7.0
+    opts['ytick.major.size']            = 7.0
+    opts['xtick.minor.size']            = 4.0
+    opts['ytick.minor.size']            = 4.0
+    opts['xtick.major.width']           = 1.6
+    opts['ytick.major.width']           = 1.6
+    opts['xtick.major.pad']             = 7.0
+    opts['ytick.major.pad']             = 7.0
+
+    #Legend:
+    opts['legend.title_fontsize']       = 16
+    opts['legend.fontsize']             = 16
+    
+    #Figure properties:
+    opts['figure.figsize']              = [6.4, 4.8]
+    opts['figure.dpi']                  = 200
+    opts['font.family']                 = 'Ubuntu'
+
+    return opts
+
+def _apply_mpl_opts(opts):
+
+    """
+    Apply Matplotlib rcParams options from a dictionary.
+
+    Parameters
+    ----------
+    opts : dict
+        Dictionary of rcParams-style key-value pairs to apply globally.
+    """
+
+    for kwd, value in opts.items():
+
+        try:
+
+            plt.rcParams[kwd] = value
+
+        except:
+
+            continue
+
+opts = _default_mpl_opts(); _apply_mpl_opts(opts)
 
 """
 IMPORTANT NOTICE:
@@ -31,6 +112,7 @@ rho_max = 2e4
 p_max = 3e12
 
 is_neptune = False
+dodistcomparison = True
 
 def generate_plots():
     tic = time.perf_counter()
@@ -43,7 +125,7 @@ def generate_plots():
         with open('result_dict_neptune.pkl', 'rb') as f:
             results = pickle.load(f)
     else:
-        with open('result_dict_uranus.pkl', 'rb') as f:
+        with open('result_dict_uranus_corr_dist_new_all_fixed.pkl', 'rb') as f:
             results = pickle.load(f)
 
 
@@ -60,20 +142,22 @@ def generate_plots():
         plottitlestr = 'Neptune'
         defaultcolor = '#3b55e1'
     else:
-        planetname = 'uranus'
+        planetname = 'uranus_corr'
         plottitlestr = 'Uranus'
         defaultcolor = '#50b5ad'
 
-    savefig = [[None for i in range(6)] for j in range(6)]
-    saveaxs = [[None for i in range(6)] for j in range(6)]
+    savefig = [[None for i in range(7)] for j in range(7)]
+    saveaxs = [[None for i in range(7)] for j in range(7)]
 
-    for i in range(6):
-        for j in range(6):
+    for i in range(7):
+        for j in range(7):
             savefig[i][j], saveaxs[i][j] = plt.subplots(num = str([i,j]))
 
     dpi = 200
 
     bincount = N    #THE BINS MARTY THE BINS WHAT DO THEY MEAN
+
+    weights = results["weights"]
 
     nticks = 5
 
@@ -82,38 +166,343 @@ def generate_plots():
     yticklocations = [0, 5000, 10000, 15000, 20000]
     yticklabels = [0, 5, 10, 15, 20]
 
+
+    if dodistcomparison:
+        # Start Result Size comparison
+        #running_average_starting_rhos = results['average starting rhos']
+        running_average_starting_rhos_dist = results['average starting rhos dist']
+        #running_average_rhos = results['average rhos']
+        running_average_rhos_dist = results['average rhos dist']
+        n_close_rhos = results['n close rhos']
+
+        cutoff = 1
+        """
+        for i in range(5):
+            if i != 3: continue
+            saveaxs[6][0].hist(running_average_starting_rhos_dist[i, n_close_rhos[i] > cutoff], bins = 20, alpha = 0.5)
+        savefig[6][0].savefig('plots/' + planetname + '/60running_average_starting_rhos_dist' + '_' + planetname + '.png', dpi=dpi)
+        
+        for i in range(5):
+            if i != 3: continue
+            saveaxs[6][1].hist(running_average_rhos_dist[i, n_close_rhos[i] > cutoff], bins = 20, alpha = 0.5)
+        savefig[6][1].savefig('plots/' + planetname + '/61running_average_rhos_dist' + '_' + planetname + '.png', dpi=dpi)
+        
+        for i in range(5):
+            if i != 3: continue
+            saveaxs[6][2].hist(n_close_rhos[i, n_close_rhos[i] > cutoff], bins = 20, alpha = 0.5)
+            print(f"{i}. Discarded bois: {np.size(n_close_rhos[i, n_close_rhos[i] <= cutoff])}")
+        savefig[6][2].savefig('plots/' + planetname + '/62n_close_rhos' + '_' + planetname + '.png', dpi=dpi)
+        
+        for i in range(5):
+            if i != 3: continue
+            saveaxs[6][3].scatter(running_average_rhos_dist[i, n_close_rhos[i] > cutoff], running_average_starting_rhos_dist[i, n_close_rhos[i] > cutoff], s=0.5)
+        #saveaxs[6][3].set_xlim(left = 0, right = 7e7)
+        #saveaxs[6][3].set_ylim(bottom = 0, top = 70*7e7)
+        #saveaxs[6][3].set_yscale("log")
+        savefig[6][3].savefig('plots/' + planetname + '/63distcomp' + '_' + planetname + '.png', dpi=dpi)
+        """
+        size_ratios = [running_average_starting_rhos_dist[i, n_close_rhos[i] > cutoff]/running_average_rhos_dist[i, n_close_rhos[i] > cutoff]/np.mean(running_average_starting_rhos_dist[i, n_close_rhos[i] > cutoff]/running_average_rhos_dist[i, n_close_rhos[i] > cutoff]) for i in range(5)]
+
+        i = 2
+        saveaxs[6][4].hist(size_ratios[i], bins = 16, range = (0,4))
+        print(f"2 Lower sigma (2.5th  percentile): {np.percentile(size_ratios[i], q=2.5)}")
+        print(f"  Lower sigma (16th   percentile): {np.percentile(size_ratios[i], q=16)}")
+        print(f"  Upper sigma (84th   percentile): {np.percentile(size_ratios[i], q=84)}")
+        print(f"2 Upper sigma (97.5th percentile): {np.percentile(size_ratios[i], q=97.5)}")
+        saveaxs[6][4].set_xlabel(r"Discoverability $\mathfrak{d}$ [unitless]")
+        saveaxs[6][4].set_ylabel("Number of reference solutions")
+        savefig[6][4].savefig('plots/' + planetname + '/64sizeratios' + '_' + planetname + '.png', dpi=dpi)
+        
+        saveaxs[6][3].hist(np.emath.logn(4,size_ratios[i]), bins = 16, range = (-1,1))
+        print(f"2 Lower sigma (2.5th  percentile): {np.percentile(np.emath.logn(4,size_ratios[i]), q=2.5)}")
+        print(f"  Lower sigma (16th   percentile): {np.percentile(np.emath.logn(4,size_ratios[i]), q=16)}")
+        print(f"  Upper sigma (84th   percentile): {np.percentile(np.emath.logn(4,size_ratios[i]), q=84)}")
+        print(f"2 Upper sigma (97.5th percentile): {np.percentile(np.emath.logn(4,size_ratios[i]), q=97.5)}")
+        saveaxs[6][3].set_xlabel("Error")
+        saveaxs[6][3].set_ylabel("Number of reference solutions")
+        savefig[6][3].savefig('plots/' + planetname + '/63error' + '_' + planetname + '.png', dpi=dpi)
+        
+
+        saveaxs[6][5].scatter(n_close_rhos[i, n_close_rhos[i] > cutoff], size_ratios[i], s=5)
+        saveaxs[6][5].set_ylim(bottom = 0, top = 4)
+        saveaxs[6][5].set_ylabel(r"Discoverability $\mathfrak{d}$ [unitless]")
+        saveaxs[6][5].set_xlabel("Popularity (Number of neighbours)")
+        savefig[6][5].savefig('plots/' + planetname + '/65popularityvsratio' + '_' + planetname + '.png', dpi=dpi)
+
+        saveaxs[6][6].scatter(n_close_rhos[i, n_close_rhos[i] > cutoff], np.emath.logn(4,size_ratios[i]), s=5)
+        saveaxs[6][6].set_ylim(bottom = -1, top = 1)
+        saveaxs[6][6].set_ylabel("Error")
+        saveaxs[6][6].set_xlabel("Popularity (Number of neighbours)")
+        #saveaxs[6][6].set_xscale("log")
+        #saveaxs[6][6].set_yscale("log")
+        savefig[6][6].savefig('plots/' + planetname + '/66logpopularityvslogratio' + '_' + planetname + '.png', dpi=dpi)
+        
+        max_distances = [3e2, 4e2, 5e2, 6e2, 7e2]
+        bins_x = np.logspace(-4, 4, 33, base=2)
+        import matplotlib
+        legend_patches=[]
+        for i in range(5):
+            counts, bin_edges = np.histogram(size_ratios[i], bins=bins_x)
+            x_outline_x = np.repeat(bin_edges, 2)
+            y_outline_x = np.hstack(([0], np.repeat(counts, 2), [0]))
+            saveaxs[3][6].plot(x_outline_x, y_outline_x, alpha = 1, label=f"{max_distances[i]:.0f}")
+            saveaxs[3][6].hist(size_ratios[i], bins = bins_x, alpha = 0.2, color="C{}".format(i))#, label=f"Max Dist {max_distances[i]}")
+            hass = np.array(matplotlib.colors.to_rgba('C'+str(i)))
+            hass[3]=0.2
+            legend_patches.append(matplotlib.patches.Patch(facecolor=hass, edgecolor='C'+str(i), linewidth=3.0, label=f"{max_distances[i]:.0f}"))
+        
+        saveaxs[3][6].legend(handles=legend_patches,title=r"$\epsilon/2$ [kg m$^{-3}$]", bbox_to_anchor=(0.0, 0.0, 0.95, 0.95))
+        saveaxs[3][6].set_xscale("log", base=2)
+        saveaxs[3][6].set_xlabel(r"Discoverability $\mathfrak{d}$ [unitless]")
+        saveaxs[3][6].set_ylabel("Number of reference solutions")
+        savefig[3][6].savefig('plots/' + planetname + '/36errors_all' + '_' + planetname + '.png', dpi=dpi)
+        """
+        bins_x = np.linspace(0, 4, 17)
+        for i in range(5):
+            counts, bin_edges = np.histogram(size_ratios[i], bins=bins_x)
+            x_outline_x = np.repeat(bin_edges, 2)
+            y_outline_x = np.hstack(([0], np.repeat(counts, 2), [0]))
+            saveaxs[4][6].plot(x_outline_x, y_outline_x, alpha = 0.6, label=f"{max_distances[i]:.0f}")
+            #saveaxs[4][6].hist(size_ratios[i], bins = 16, range = (0,4), alpha = 0.6, label=f"Max Dist {max_distances[i]}")
+        savefig[4][6].legend()
+        savefig[4][6].savefig('plots/' + planetname + '/46sizeratios_all' + '_' + planetname + '.png', dpi=dpi)
+        """
+        for i in range(5):
+            saveaxs[5][6].scatter(n_close_rhos[i, n_close_rhos[i] > cutoff], size_ratios[i], s=5, label=f"{max_distances[i]:.0f}")
+        saveaxs[5][6].set_ylim(bottom = 2**-4, top = 2**4)
+        saveaxs[5][6].set_xscale("log")
+        saveaxs[5][6].set_yscale("log", base=2)
+        saveaxs[5][6].set_ylabel(r"Discoverability $\mathfrak{d}$ [unitless]")
+        saveaxs[5][6].set_xlabel("Popularity (Number of neighbours)")
+        #saveaxs[5][6].legend()
+        savefig[5][6].savefig('plots/' + planetname + '/56popularityvsratio_all' + '_' + planetname + '.png', dpi=dpi)
+
+        import math
+        
+        
+        print("Individual")
+        for i in range(5):
+            print(f"{i+1}.")
+            print(f"N Lost:  {np.size(n_close_rhos[i, n_close_rhos[i] <= cutoff])}")
+            print(f"Range:   {np.percentile(size_ratios[i], q=2.5):.3f}-{np.percentile(size_ratios[i], q=97.5):.3f}")
+            print(f"Span:    {np.percentile(size_ratios[i], q=97.5)/np.percentile(size_ratios[i], q=2.5):.2f}")
+            linregress_result = linregress(n_close_rhos[i, n_close_rhos[i] > cutoff], size_ratios[i])
+            #linregress_result = linregress(running_average_rhos_dist[i, n_close_rhos[i] > cutoff], running_average_starting_rhos_dist[i, n_close_rhos[i] > cutoff])
+            print(f"Slope:   {linregress_result.slope}")
+            print(f"R-value: {linregress_result.rvalue}")
+            print(f"P-value: {linregress_result.pvalue}")
+            print(f"Std-err: {linregress_result.stderr}")
+            print()
+            #reg = LinearRegression().fit(running_average_rhos_dist[i, n_close_rhos[i] > cutoff].reshape(-1, 1), running_average_starting_rhos_dist[i, n_close_rhos[i] > cutoff].reshape(-1, 1), n_close_rhos[i, n_close_rhos[i] > cutoff])
+            #print(f"R-value: {math.sqrt(reg.score(running_average_rhos_dist[i, n_close_rhos[i] > cutoff].reshape(-1, 1), running_average_starting_rhos_dist[i, n_close_rhos[i] > cutoff].reshape(-1, 1), n_close_rhos[i, n_close_rhos[i] > cutoff]))}")
+        
+        """
+        running_average_rhos_dist_all = np.concatenate([running_average_rhos_dist[i, n_close_rhos[i] > cutoff] for i in range(5)])
+        running_average_starting_rhos_dist_all = np.concatenate([running_average_starting_rhos_dist[i, n_close_rhos[i] > cutoff] for i in range(5)])
+        n_close_rhos_all = np.concatenate([n_close_rhos[i, n_close_rhos[i] > cutoff] for i in range(5)])
+        ratios_all = np.concatenate([running_average_starting_rhos_dist[i, n_close_rhos[i] > cutoff]/running_average_rhos_dist[i, n_close_rhos[i] > cutoff] for i in range(5)])
+
+        print("Big")
+        linregress_result = linregress(n_close_rhos_all, ratios_all)
+        #linregress_result = linregress(running_average_rhos_dist_all, running_average_starting_rhos_dist_all)
+        
+        print(f"Slope:   {linregress_result.slope}")
+        print(f"R-value: {linregress_result.rvalue}")
+        print(f"P-value: {linregress_result.pvalue}")
+        print(f"Std-err: {linregress_result.stderr}")
+        """
+
+
     # J2 vs J4 (outliers killed)
+
+    # Data for histograms:
+    bins = 120
+    bins_hist = 15
+    gamma = 1 #Gamma correction for better color visibility
+    colors = ['C0', 'C1']
+    colormaps = ['Blues', 'Oranges']
+
+    kappa = 2
+
+    #Create new figure:
+    jfig = plt.figure(num='J2J4', figsize=[6.4, 6.4], layout='constrained')
+    gs = jfig.add_gridspec(2, 2, width_ratios=(4, 1.25), height_ratios=(1.25, 4), wspace=0.00, hspace=0.00)
+
+    #Define axes:
+    ax          = jfig.add_subplot(gs[1, 0])
+    ax_histx    = jfig.add_subplot(gs[0, 0], sharex=ax)
+    ax_histy    = jfig.add_subplot(gs[1, 1], sharey=ax)
+
+    #Set custom axes options:
+    ax_histx.tick_params(axis="both", which="both", bottom=False, top=False, left=True , right=False, labelbottom=False, labelleft=True )
+    ax_histy.tick_params(axis="both", which="both", bottom=True , top=False, left=False, right=False, labelbottom=True , labelleft=False)
+
+    for spine in ['top', 'right']:
+        ax_histx.spines[spine].set_visible(False)
+        ax_histy.spines[spine].set_visible(False)
+
 
     if is_neptune:  Target_Js = 1e6*np.array([3401.655e-6, -33.294e-6]); Sigma_Js = 1e6*np.array([   3.994e-6,  10.000e-6])
     else:           Target_Js = 1e6*np.array([3509.291e-6, -35.522e-6]); Sigma_Js = 1e6*np.array([   0.412e-6,   0.466e-6])
     
-    
+    ax.set_title(plottitlestr)
+    ax.set_xlabel(r"$J_2  \ [10^{-6}]$")
+    ax.set_ylabel(r"$J_4  \ [10^{-6}]$")
+
     J2 = 1e6*results['J2']
     J4 = 1e6*results['J4']
 
-    linregress_result = linregress(J2, J4)
+    x_array = J2
+    y_array = J4
+
+    x_array1 = J2
+    y_array1 = J4
+
+    if is_neptune:
+        x_array2 = J2
+        y_array2 = J4
+        weightscorr = weights
+    else:
+        with open('result_dict_uranus_corr.pkl', 'rb') as f:
+            resultscorr = pickle.load(f)   
+
+        J2corr = 1e6*resultscorr['J2']
+        J4corr = 1e6*resultscorr['J4']
+        weightscorr = resultscorr["weights"]
+        x_array2 = J2corr
+        y_array2 = J4corr
+
+    #2d histogram data:
+    H1, xedges, yedges  = np.histogram2d(x_array1, y_array1, bins=bins,             weights=weights, density=True)
+    H2, _, _            = np.histogram2d(x_array2, y_array2, bins=[xedges, yedges], weights=weightscorr, density=False)
+    H1 = np.swapaxes(H1, 0, 1)
+    H2 = np.swapaxes(H2, 0, 1)
+
+    if False:
+        #Hexagons:
+        hb_template = ax.hexbin(
+            x_array1, y_array1,
+            gridsize=bins,
+            extent=[-3, 3, -3, 3],
+            C=None
+        )
+
+        hex_centers = hb_template.get_offsets()
+        M = len(hex_centers)
+
+        def aggregate_to_hexgrid(x, y, weights, centers):
+            H = np.zeros(len(centers))
+            idx = np.argmin((x[:,None]-centers[None,:,0])**2 +
+                            (y[:,None]-centers[None,:,1])**2, axis=1)
+            np.add.at(H, idx, weights)
+            return H
+
+        H1 = aggregate_to_hexgrid(x_array1, y_array1,
+                                exp(x_array1, y_array1, cov=0.0000),
+                                hex_centers)
+
+        H2 = aggregate_to_hexgrid(x_array2, y_array2,
+                                exp(x_array2, y_array2, cov=0.9861),
+                                hex_centers)
+
+    #Normalize:
+    t1 = H1.copy()
+    t2 = H2.copy()
+    #t1 = np.log(t1+1)
+    #t2 = np.log(t2+1)
+    t1 /= np.max(t1)
+    t2 /= np.max(t2)
+    H1 = np.log(H1+1)
+    H2 = np.log(H2+1)
+    H1 /= np.max(H1)
+    H2 /= np.max(H2)
+    #H1 = np.stack([np.linspace(0,1,100)]*100, axis=0)
+    #H2 = np.stack([np.linspace(0,1,100)]*100, axis=1)
+
+
+    # Convert to RGBA using colormaps
+    cmap1 = plt.get_cmap(colormaps[0])
+    cmap2 = plt.get_cmap(colormaps[1])
+
+    def blend_gamma(c1, c2, t1, t2, kappa):
+        # mix them
+        c1_lin = np.power(c1, kappa)
+        c2_lin = np.power(c2, kappa)
+        # use mixing weight (so that white gets mostly ignored)
+        mixed_lin = (c1_lin * (t1[:,:,np.newaxis] + np.spacing(0)) + c2_lin * (t2[:,:,np.newaxis] + np.spacing(0)))/(t1[:,:,np.newaxis] + t2[:,:,np.newaxis] + 2*np.spacing(0))
+        #magic = 1 + 4*t1*t2*(2 - (t1+t2))
+        #mixed_lin /= magic[:,:,np.newaxis]
+        mixed_lin = np.power(mixed_lin, 1/kappa)
+        return mixed_lin
+
+    #Mix the colors:
+    rgba1 = cmap1(H1**gamma)
+    rgba2 = cmap2(H2**gamma)
+    #rgba1[:,:,3] = H1
+    #rgba2[:,:,3] = H2
+    mixed = blend_gamma(rgba1[:,:,:3], rgba2[:,:,:3], t1, t2, kappa)
+
+    #Squares:
+
+    # Display blended heatmap:
+    extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+    if is_neptune: ax.imshow(rgba1, extent=extent, origin='lower', aspect='auto')
+    else:          ax.imshow(mixed, extent=extent, origin='lower', aspect='auto')
+
+    if False:
+        #Hexagons:
+
+        # Display blended heatmap:
+        hb_template.set_array(None)
+        hb_template.set_facecolors(mixed)
+        hb_template.set_edgecolors("none")
+
+    #Plot the data:
+    ax.errorbar(x=Target_Js[0], y=Target_Js[1], xerr=Sigma_Js[0], yerr=Sigma_Js[1], fmt='o', color='k', capsize=3)
+
+    #Plot the x-data histogram:
+    bins_x = np.linspace(x_array.min(), x_array.max(), bins_hist)
+    ax_histx.hist(x_array, bins=bins_x, alpha=0.5, color=colors[0], weights=weights)
+    counts, bin_edges = np.histogram(x_array, bins=bins_x, weights=weights)
+    x_outline_x = np.repeat(bin_edges, 2)
+    y_outline_x = np.hstack(([0], np.repeat(counts, 2), [0]))
+    ax_histx.plot(x_outline_x, y_outline_x, color=colors[0])
+
+    #Plot the y-data histogram:
+    bins_y = np.linspace(y_array.min(), y_array.max(), bins_hist)
+    ax_histy.hist(y_array, bins=bins_y, alpha=0.5, orientation='horizontal', color=colors[0], weights=weights)
+    counts, bin_edges = np.histogram(y_array, bins=bins_y, weights=weights)
+    y_outline_y = np.repeat(bin_edges, 2)
+    x_outline_y = np.hstack(([0], np.repeat(counts, 2), [0]))
+    ax_histy.plot(x_outline_y, y_outline_y, color=colors[0])
+
+
+    if is_neptune == False:
+        x_array = J2corr
+        y_array = J4corr
+
+        #Plot the x-data histogram:
+        bins_x = np.linspace(x_array.min(), x_array.max(), bins_hist)
+        ax_histx.hist(x_array, bins=bins_x, alpha=0.5, color=colors[1], weights=weightscorr)
+        counts, bin_edges = np.histogram(x_array, bins=bins_x, weights=weightscorr)
+        x_outline_x = np.repeat(bin_edges, 2)
+        y_outline_x = np.hstack(([0], np.repeat(counts, 2), [0]))
+        ax_histx.plot(x_outline_x, y_outline_x, color=colors[1])
+
+        #Plot the y-data histogram:
+        bins_y = np.linspace(y_array.min(), y_array.max(), bins_hist)
+        ax_histy.hist(y_array, bins=bins_y, alpha=0.5, orientation='horizontal', color=colors[1], weights=weightscorr)
+        counts, bin_edges = np.histogram(y_array, bins=bins_y, weights=weightscorr)
+        y_outline_y = np.repeat(bin_edges, 2)
+        x_outline_y = np.hstack(([0], np.repeat(counts, 2), [0]))
+        ax_histy.plot(x_outline_y, y_outline_y, color=colors[1])
+
+    jfig.savefig('plots/' + planetname + '/53J2J4correlation' + '_' + planetname + '.png', dpi=dpi)
+
     
-    print("Slope:")
-    print(linregress_result.slope)
-    print("R-value:")
-    print(linregress_result.rvalue)
-    print("P-value:")
-    print(linregress_result.pvalue)
-    print("Std-err:")
-    print(linregress_result.stderr)
-    print("Covariance")
-    print(np.cov(J2,J4)[0,1])
-
-    toleranceofheretics = Sigma_Js[0]
-    thepurger = ((np.abs(J2 - Target_Js[0]) < toleranceofheretics) & (np.abs(J4 - Target_Js[1]) < Sigma_Js[1]))
-
-    saveaxs[5][3].set_title(plottitlestr)
-    saveaxs[5][3].scatter(J2[thepurger], J4[thepurger], color = defaultcolor, s=0.5)
-    saveaxs[5][3].errorbar(x=Target_Js[0], y=Target_Js[1], xerr=min(toleranceofheretics,Sigma_Js[0]), yerr=Sigma_Js[1], marker = '*', color = 'k')
-    saveaxs[5][3].set_xlabel(r"$J_2  \ [10^{-6}]$")
-    saveaxs[5][3].set_ylabel(r"$J_4  \ [10^{-6}]$")
-    savefig[5][3].savefig('plots/' + planetname + '/53J2J4correlation' + '_' + planetname + '.png', dpi=dpi)
-
+    
+    
+    """
     # J2 vs J4 (relative error)
 
     saveaxs[5][4].set_title(plottitlestr)
@@ -135,7 +524,7 @@ def generate_plots():
     saveaxs[5][5].set_xlabel(r"$J_2  \ [10^{-6}]$")
     saveaxs[5][5].set_ylabel(r"$J_4  \ [10^{-6}]$")
     savefig[5][5].savefig('plots/' + planetname + '/55J2J4correlation' + '_' + planetname + '.png', dpi=dpi)
-
+    """
     #JUMPS
 
     #saveaxs[0][0].set_title('Average jump' + plottitlestr)
@@ -157,13 +546,15 @@ def generate_plots():
     """
     #saveaxs[0][1].set_title('Average jump intensity' + plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
     saveaxs[0][1].set_title(plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
-    proc_jump_j_expl = results['processed jumps'][results['jumps Js explained view']]
+    proc_jump_j_expl = results['processed jumps']
     jumpindex = proc_jump_j_expl[:, 0]
     jumpwidth = proc_jump_j_expl[:, 1]
     jumpheight = proc_jump_j_expl[:, 2]/results['nJ']
     jumpweight = jumpheight/jumpwidth
+    resultweights = proc_jump_j_expl[:,3]
+    resultweights /= np.mean(resultweights)
     #saveaxs[0][1].hist(jumpindex, bins = bincount, range = (0,N-1), weights = jumpweight, color = defaultcolor)
-    y, x = np.histogram(jumpindex, bins = bincount, range = (0,N-1), weights = jumpweight)
+    y, x = np.histogram(jumpindex, bins = bincount, range = (0,N-1), weights = jumpweight*resultweights)
     saveaxs[0][1].plot(x[0:1023], y[0:1023], color = defaultcolor)
     saveaxs[0][1].invert_xaxis()
     saveaxs[0][1].set_xticks(xticklocations, xticklabels)
@@ -176,7 +567,7 @@ def generate_plots():
 
     #saveaxs[0][2].set_title('Jump widths, arbitrary units' + plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
     saveaxs[0][2].set_title(plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
-    y, x = np.histogram(jumpindex, bins = bincount, range = (0,N-1), weights = jumpwidth/results['nJ'])
+    y, x = np.histogram(jumpindex, bins = bincount, range = (0,N-1), weights = jumpwidth/results['nJ']*resultweights)
     saveaxs[0][2].plot(x[0:1023], y[0:1023], color = defaultcolor)
     saveaxs[0][2].invert_xaxis()
     saveaxs[0][2].set_xticks(xticklocations, xticklabels)
@@ -191,7 +582,7 @@ def generate_plots():
 
     #saveaxs[0][3].set_title('Average jump magnitude' + plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
     saveaxs[0][3].set_title(plottitlestr) #((real_jumplocation, jumpsize, jumpmagnitude))
-    y, x = np.histogram(jumpindex, bins = bincount, range = (0,N-1), weights = jumpheight)
+    y, x = np.histogram(jumpindex, bins = bincount, range = (0,N-1), weights = jumpheight*resultweights)
     saveaxs[0][3].plot(x[0:1023], y[0:1023], color = defaultcolor)
     saveaxs[0][3].invert_xaxis()
     saveaxs[0][3].set_xticks(xticklocations, xticklabels)
@@ -204,14 +595,14 @@ def generate_plots():
 
     #saveaxs[1][2].set_title('Number of discontinuities in profile' + plottitlestr)
     saveaxs[1][2].set_title(plottitlestr)
-    nr_jumps_J_expl = results['nr jumps'][results['nr jumps Js explained view']]
+    nr_jumps_J_expl = results['nr jumps']
     max_nr = np.max(nr_jumps_J_expl)
-    nrjumpsbinvalues, nrjumpsbinedges, _ = saveaxs[1][2].hist(nr_jumps_J_expl, bins = max_nr + 1, range = (-0.5, max_nr+0.5), color = defaultcolor, density = True)
+    nrjumpsbinvalues, nrjumpsbinedges, _ = saveaxs[1][2].hist(nr_jumps_J_expl, bins = max_nr + 1, range = (-0.5, max_nr+0.5), color = defaultcolor, density = True, weights=weights)
     #find index where we cumulate 95% of the total nr of jumps
     transform = trans.blended_transform_factory(saveaxs[1][2].transData, saveaxs[1][2].transAxes)
-    saveaxs[1][2].vlines(np.percentile(nr_jumps_J_expl, 50), ymin = 0, ymax = 1, linestyle ='-', color = 'black', transform = transform, label = 'Median')
-    saveaxs[1][2].vlines(np.percentile(nr_jumps_J_expl, 95), ymin = 0, ymax = 1, linestyle ='--', color = 'tab:gray', transform = transform, label = '95th percentile')
-    saveaxs[1][2].vlines(np.mean(nr_jumps_J_expl), ymin = 0, ymax = 1, linestyle ='-', color = 'tab:red', transform = transform, label = 'Average')
+    saveaxs[1][2].vlines(np.percentile(nr_jumps_J_expl, 50, weights=weights, method='inverted_cdf'), ymin = 0, ymax = 1, linestyle ='-', color = 'black', transform = transform, label = 'Median')
+    saveaxs[1][2].vlines(np.percentile(nr_jumps_J_expl, 95, weights=weights, method='inverted_cdf'), ymin = 0, ymax = 1, linestyle ='--', color = 'tab:gray', transform = transform, label = '95th percentile')
+    saveaxs[1][2].vlines(np.mean(nr_jumps_J_expl*weights), ymin = 0, ymax = 1, linestyle ='-', color = 'tab:red', transform = transform, label = 'Average')
     saveaxs[1][2].xaxis.set_major_locator(MaxNLocator(integer=True))
     saveaxs[1][2].set_xlim(right=32)
     saveaxs[1][2].set_xlabel("Number of discontinuities")
@@ -229,8 +620,8 @@ def generate_plots():
     avg_jumps_per_criteria = [] # y1
     max_jumps_per_criteria = [] # y2
     for jumps in jumps_per_criteria:
-        avg_jumps_per_criteria.append(np.mean(jumps))
-        max_jumps_per_criteria.append(np.percentile(jumps, 95))        #find index which covers 95th percentile
+        avg_jumps_per_criteria.append(np.mean(jumps*weights))
+        max_jumps_per_criteria.append(np.percentile(jumps, 95, weights=weights, method='inverted_cdf'))        #find index which covers 95th percentile
     saveaxs[1][3].plot(avg_jumps_per_criteria, color = 'tab:red', label = 'Average')
     saveaxs[1][3].plot(max_jumps_per_criteria, linestyle ='--', color = 'tab:gray', label = '95th percentile')
     if is_neptune == False: saveaxs[1][3].legend()
@@ -356,6 +747,8 @@ def generate_plots():
     #saveaxs[1][0].set_title('Distribution of density profiles, log scale' + plottitlestr)
     saveaxs[1][0].set_title(plottitlestr)
     log_grid = results['distr grid density']
+    if is_neptune:  log_grid[log_grid < 1e-6] = 0
+    else:           log_grid[log_grid < 3e-5] = 0
     logdistr = saveaxs[1][0].imshow((np.transpose(log_grid)), cmap = 'plasma', norm = col.LogNorm(), aspect = 'auto', origin = 'lower', extent = (-0.5, N-0.5, -0.5, rho_max-0.5))
     cbar = savefig[1][0].colorbar(logdistr, ax=saveaxs[1][0])
     cbar.set_label(label = 'Relative frequency', labelpad = 14)
@@ -483,6 +876,8 @@ def generate_plots():
     #saveaxs[1][4].set_title('Distribution of pressure profiles, log scale' + plottitlestr)
     saveaxs[1][4].set_title(plottitlestr)
     log_grid = results['distr grid pressure']
+    if is_neptune:  log_grid[log_grid < 1e-6] = 0
+    else:           log_grid[log_grid < 3e-5] = 0
     logdistr = saveaxs[1][4].imshow((np.transpose(log_grid)), cmap = 'plasma', norm = col.LogNorm(), aspect = 'auto', origin = 'lower', extent = (-0.5, N-0.5, -0.5, p_max-0.5))
     cbar = savefig[1][4].colorbar(logdistr, ax=saveaxs[1][4])
     cbar.set_label(label = 'Relative frequency', labelpad = 14)
@@ -542,7 +937,7 @@ def generate_plots():
 
     savefig[1][4].savefig('plots/' + planetname + '/14press_distr' + '_' + planetname + '.png', dpi=2*dpi)
 
-
+    """
     #saveaxs[2][0].set_title('Samples of the density profile distribution' + plottitlestr)
     #saveaxs[2][1].set_title('Samples of the density profile distribution' + plottitlestr + '\nFirst derivative, smoothed')
     #saveaxs[2][2].set_title('Samples of the density profile distribution' + plottitlestr + '\nFirst derivative, smoothed and normalised')
@@ -692,7 +1087,7 @@ def generate_plots():
     savefig[4][0].savefig('plots/' + planetname + '/40dev' + '_' + planetname + '.png', dpi=dpi)
     savefig[4][1].savefig('plots/' + planetname + '/41devder' + '_' + planetname + '.png', dpi=dpi)
     savefig[4][2].savefig('plots/' + planetname + '/42devdernorm' + '_' + planetname + '.png', dpi=dpi)
-
+    """
 
 
 
@@ -749,7 +1144,7 @@ def generate_plots():
 
     #saveaxs[3][1].set_title('Core Density' + plottitlestr)
     saveaxs[3][1].set_title(plottitlestr)
-    maxdensbinvalues, maxdensbinedges, _  = saveaxs[3][1].hist(results['max dens'][results['dens Js explained view']], bins = 400, color = defaultcolor, density = True)
+    maxdensbinvalues, maxdensbinedges, _  = saveaxs[3][1].hist(results['max dens'], bins = 400, color = defaultcolor, density = True, weights=weights)
     maxdensbinlocations = (maxdensbinedges[:-1]+maxdensbinedges[1:])/2
     
     modeindex = np.argmax(maxdensbinvalues)
@@ -761,7 +1156,7 @@ def generate_plots():
     avglocation = maxdensbinlocations[avgindex]
     avgvalue = maxdensbinvalues[avgindex]
 
-    median = np.median(results['max dens'][results['dens Js explained view']])
+    median = np.percentile(results['max dens'], 50, weights=weights, method='inverted_cdf')
     medianindex = np.digitize(median, maxdensbinedges)
     medianlocation = maxdensbinlocations[medianindex]
     medianvalue = maxdensbinvalues[medianindex]
@@ -802,13 +1197,14 @@ def generate_plots():
 
     saveaxs[3][1].set_ylabel('Relative frequency')
     saveaxs[3][1].get_yaxis().set_ticks([])
+    saveaxs[3][1].set_ylim(top = np.max(maxdensbinvalues)*1.1)
     saveaxs[3][1].set_xticks(yticklocations, yticklabels)
     saveaxs[3][1].set_xlabel(r"$\rho$ [1000 kg m$^{-3}$]")
 
     if is_neptune == False: saveaxs[3][1].legend()
 
     savefig[3][1].savefig('plots/' + planetname + '/31maxdens' + '_' + planetname + '.png', dpi=dpi)
-
+    """
     #saveaxs[3][2].set_title('Average of profiles' + plottitlestr)
     saveaxs[3][2].set_title(plottitlestr)
     saveaxs[3][2].plot(results['avg start'], linestyle ='--', color = 'tab:gray', label = 'Generated')
@@ -837,12 +1233,12 @@ def generate_plots():
     saveaxs[3][3].set_ylabel(r"$\Delta\rho$ [kg m$^{-3}$]")
 
     savefig[3][3].savefig('plots/' + planetname + '/33avgchange' + '_' + planetname + '.png', dpi=dpi)
-
+    """
 
     #NMoI
     #saveaxs[4][3].set_title('Normalised Moments of Inertia' + plottitlestr)
     saveaxs[4][3].set_title(plottitlestr)
-    maxnmoibinvalues, maxnmoibinedges, _  = saveaxs[4][3].hist(results['moments of inertia'], bins = 200, color = defaultcolor, density = True)
+    maxnmoibinvalues, maxnmoibinedges, _  = saveaxs[4][3].hist(results['moments of inertia'], bins = 200, color = defaultcolor, density = True, weights=weights)
     maxnmoibinlocations = (maxnmoibinedges[:-1]+maxnmoibinedges[1:])/2
     
     weighted_indices = maxnmoibinvalues*np.arange(len(maxnmoibinvalues))
@@ -857,7 +1253,8 @@ def generate_plots():
     """
 
     saveaxs[4][3].vlines(avglocation, ymin = 0, ymax = avgvalue, linestyle ='-', color = 'tab:red', label = 'Average')
-    saveaxs[4][3].text(avglocation, avgvalue, '{:.5f}'.format(avglocation), ha='right', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small', backgroundcolor = 'white')
+    if is_neptune: saveaxs[4][3].text(avglocation-0.0003, 1.05*avgvalue, '{:.5f}'.format(avglocation), ha='right', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small', backgroundcolor = 'none')
+    else:          saveaxs[4][3].text(avglocation+0.00001, avgvalue/10, '{:.5f}'.format(avglocation), ha='left', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small', backgroundcolor = 'none')
 
     #saveaxs[4][3].vlines(medianlocation, ymin = 0, ymax = medianvalue, linestyle ='-', color = 'black', label = 'Median')
     #saveaxs[4][3].text(medianlocation, medianvalue, '{:.2f}'.format(medianlocation/1000), ha='left', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small')
@@ -881,7 +1278,7 @@ def generate_plots():
     saveaxs[4][4].set_title(plottitlestr)
     if is_neptune: offset = 1.00629; offsetstr = "1.00629"
     else: offset = 1.00680; offsetstr = "1.00680"
-    maxfrbinvalues, maxfrbinedges, _  = saveaxs[4][4].hist((results['flattening ratios']-offset)*10**5, bins = 200, color = defaultcolor, density = True)
+    maxfrbinvalues, maxfrbinedges, _  = saveaxs[4][4].hist((results['flattening ratios']-offset)*10**5, bins = 200, color = defaultcolor, density = True, weights=weights)
     maxfrbinlocations = (maxfrbinedges[:-1]+maxfrbinedges[1:])/2
     
     weighted_indices = maxfrbinvalues*np.arange(len(maxfrbinvalues))
@@ -895,8 +1292,29 @@ def generate_plots():
     medianvalue = maxfrbinvalues[medianindex]
     """
     saveaxs[4][4].vlines(avglocation, ymin = 0, ymax = avgvalue, linestyle ='-', color = 'tab:red', label = 'Average')
-    saveaxs[4][4].text(avglocation, avgvalue, '{:.3f}'.format(avglocation), ha='right', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small', backgroundcolor = 'white')
+    if is_neptune: saveaxs[4][4].text(1.03*avglocation, avgvalue/10, '{:.3f}'.format(avglocation), ha='left', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small', backgroundcolor = 'none')
+    else:          saveaxs[4][4].text(1.004*avglocation, avgvalue/10, '{:.3f}'.format(avglocation), ha='left', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small', backgroundcolor = 'none')
 
+    """
+    # reference & error bars
+    fr_ref_neptune = (1.0058 - offset)*10**5
+    fr_ref_neptune_err = 0.0010*10**5
+    fr_ref_uranus = (1.0078 - offset)*10**5
+    fr_ref_uranus_err = 0.0003*10**5
+    if is_neptune:
+        saveaxs[4][4].vlines(fr_ref_neptune, ymin = 0, ymax = avgvalue, linestyle ='-', color = 'k', label = 'Reference')
+        saveaxs[4][4].errorbar(x=fr_ref_neptune, y=avgvalue*0.5, xerr=fr_ref_neptune_err, yerr=None, color = 'k', capsize=3, marker=None)
+    else:         
+        saveaxs[4][4].vlines(fr_ref_uranus, ymin = 0, ymax = avgvalue, linestyle ='-', color = 'k', label = 'Reference')
+        saveaxs[4][4].errorbar(x=fr_ref_uranus, y=avgvalue*0.5, xerr=fr_ref_uranus_err, yerr=None, color = 'k', capsize=3, marker=None)
+
+    # tof error
+    err = avglocation*4*10**(-4)*10**5
+    if is_neptune:
+        saveaxs[4][4].errorbar(x=avglocation, y=avgvalue*0.6, xerr=err, yerr=None, color = 'tab:red', capsize=3, marker=None)
+    else:         
+        saveaxs[4][4].errorbar(x=avglocation, y=avgvalue*0.6, xerr=err, yerr=None, color = 'tab:red', capsize=3, marker=None)
+    """
     #saveaxs[4][4].vlines(medianlocation, ymin = 0, ymax = medianvalue, linestyle ='-', color = 'black', label = 'Median')
     #saveaxs[4][4].text(medianlocation, medianvalue, '{:.2f}'.format(medianlocation), ha='left', va='bottom', rotation= 'horizontal', rotation_mode = 'anchor', fontsize = 'small')
 
@@ -904,7 +1322,7 @@ def generate_plots():
     #saveaxs[4][4].set_xticks(yticklocations, yticklabels)
     saveaxs[4][4].ticklabel_format(useOffset=False)
     #TODO: BAD
-    #saveaxs[4][4].set_xlabel(f"$(r_f - {offsetstr}) \cdot 10^5$ [unitless]")
+    saveaxs[4][4].set_xlabel(f"$(r_f - {offsetstr}) \cdot 10^5$ [unitless]")
 
     if is_neptune == False: saveaxs[4][4].legend()
 
